@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+.vite/
+.cursor/
+
+# Intermediate sprite extraction dumps (game uses public/sprites/cut/)
+public/sprites/frogger-clean/
+public/sprites/sheet-v2.png
+public/sprites/sheet-v2-transparent.png
+public/sprites/sheet-transparent.png
+public/sprites/frogger-sprites.png

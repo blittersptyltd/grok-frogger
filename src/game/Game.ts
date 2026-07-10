@@ -1,0 +1,588 @@
+import { WIDTH, HEIGHT, TILE, COLS, GameState, PALETTE } from "../types";
+import { drawWorldBackground, ROW } from "./World";
+import { drawHUD, HUDState } from "./HUD";
+import { Input } from "./Input";
+import { Frog, FROG_START_COL, FROG_START_ROW, DeathKind } from "./Frog";
+import { SpriteSheet } from "./Sprites";
+import { Lane, LaneConfig } from "./Lane";
+import { isPotentiallyRideable } from "./Obstacle";
+import { Homes } from "./Homes";
+import { Bonuses } from "./Bonuses";
+import { Audio } from "./Audio";
+import { featuresForLevel, SCORE_FLY_BONUS, SCORE_LADY_BONUS, LevelFeatures } from "./Levels";
+import {
+  DEATH_DURATION,
+  FROG_HITBOX_INSET,
+  SCORE_PER_STEP,
+  SCORE_PER_HOME,
+  SCORE_PER_TIME_SECOND,
+  SCORE_LEVEL_BONUS,
+  EXTRA_LIFE_AT,
+  TIME_LIMIT_SECONDS,
+  READY_DURATION,
+  LEVEL_COMPLETE_DURATION,
+  GAME_OVER_DURATION,
+  HIGH_SCORE_KEY,
+  levelSpeedMultiplier,
+} from "./Constants";
+
+const ROAD_LANES: LaneConfig[] = [
+  { row: ROW.ROAD_1, direction: -1, speed: 35, kind: "truck", spacing: TILE * 9 },
+  { row: ROW.ROAD_2, direction: 1, speed: 70, kind: "car_white", spacing: TILE * 8 },
+  { row: ROW.ROAD_3, direction: -1, speed: 30, kind: "car_purple", spacing: TILE * 7 },
+  { row: ROW.ROAD_4, direction: 1, speed: 45, kind: "car_green", spacing: TILE * 8 },
+  { row: ROW.ROAD_5, direction: -1, speed: 25, kind: "car_yellow", spacing: TILE * 7 },
+];
+
+const RIVER_LANES: LaneConfig[] = [
+  { row: ROW.RIVER_1, direction: 1, speed: 35, kind: "log_med", spacing: TILE * 7 },
+  { row: ROW.RIVER_2, direction: -1, speed: 45, kind: "turtle_trio", spacing: TILE * 6 },
+  { row: ROW.RIVER_3, direction: 1, speed: 25, kind: "log_long", spacing: TILE * 8 },
+  { row: ROW.RIVER_4, direction: 1, speed: 50, kind: "log_short", spacing: TILE * 6 },
+  { row: ROW.RIVER_5, direction: -1, speed: 35, kind: "turtle_pair", spacing: TILE * 5 },
+];
+
+export class Game {
+  private ctx: CanvasRenderingContext2D;
+  private last = 0;
+  private accumulator = 0;
+  private readonly STEP = 1 / 60;
+  private state: GameState = "ATTRACT";
+  private stateTimer = 0;
+  private debug = false;
+  private attractBlink = 0;
+
+  private input = new Input();
+  private sprites = new SpriteSheet();
+  private audio = new Audio();
+  private frog = new Frog(FROG_START_COL, FROG_START_ROW, this.sprites);
+  private homes = new Homes(this.sprites);
+  private bonuses = new Bonuses(this.sprites);
+  private features: LevelFeatures = featuresForLevel(1);
+  private timeWarningSounded = false;
+  private roadLanes: Lane[] = [];
+  private riverLanes: Lane[] = [];
+  private get allLanes(): Lane[] {
+    return [...this.roadLanes, ...this.riverLanes];
+  }
+
+  // Lowest row index (= furthest north) the frog has reached this life.
+  // Used to award per-step bonus only the first time the frog reaches a new row.
+  private maxRowReached: number = FROG_START_ROW;
+  private timeRemainingSec = TIME_LIMIT_SECONDS;
+  private extraLifeAwarded = false;
+
+  private hud: HUDState = {
+    score: 0,
+    hiScore: 0,
+    lives: 3,
+    level: 1,
+    timeRemaining: 1,
+  };
+
+  constructor(canvas: HTMLCanvasElement) {
+    canvas.width = WIDTH;
+    canvas.height = HEIGHT;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("2d context unavailable");
+    ctx.imageSmoothingEnabled = false;
+    this.ctx = ctx;
+    this.fitCanvas(canvas);
+    window.addEventListener("resize", () => this.fitCanvas(canvas));
+    window.addEventListener("keydown", (e) => {
+      // Browser policy requires a user gesture before audio can start.
+      this.audio.ensureStarted();
+
+      // Reason: KeyD is move-right in Input; use backtick for debug overlay.
+      if (e.code === "Backquote") this.debug = !this.debug;
+      if (e.code === "KeyM") this.audio.toggleMute();
+
+      if (e.code === "Enter") {
+        if (this.state === "ATTRACT") {
+          this.startNewGame();
+          return;
+        }
+        if (this.state === "GAME_OVER" && this.stateTimer <= 0) {
+          this.enterAttract();
+          return;
+        }
+      }
+
+      if (this.state === "PLAYING" || this.state === "READY") this.audio.startMusic();
+    });
+    this.spawnLanesForLevel();
+    // Attract mode: hide the frog until the player starts.
+    this.frog.reset(FROG_START_COL, FROG_START_ROW);
+  }
+
+  async start(): Promise<void> {
+    await this.sprites.whenReady();
+    // Restore persisted hi-score (0 on first run).
+    this.hud.hiScore = parseInt(localStorage.getItem(HIGH_SCORE_KEY) || "0", 10);
+    this.last = performance.now();
+    requestAnimationFrame(this.loop);
+  }
+
+  private loop = (now: number): void => {
+    const dt = (now - this.last) / 1000;
+    this.last = now;
+    this.accumulator += dt;
+    while (this.accumulator >= this.STEP) {
+      this.update(this.STEP);
+      this.accumulator -= this.STEP;
+    }
+    this.render();
+    requestAnimationFrame(this.loop);
+  };
+
+  private update(dt: number): void {
+    for (const lane of this.allLanes) lane.update(dt);
+    this.bonuses.update(dt, this.riverLanes, {
+      ladyEnabled: this.features.ladyFrog && this.state === "PLAYING",
+      ladyDuration: this.features.ladyDurationSec,
+      snakeEnabled: this.features.snakes && this.state !== "ATTRACT",
+      snakeSpeed: 40 * levelSpeedMultiplier(this.hud.level),
+    });
+    this.homes.update(dt);
+
+    if (this.state === "ATTRACT") {
+      this.attractBlink += dt;
+      this.input.clear();
+      return;
+    }
+
+    if (this.state === "READY") {
+      this.stateTimer -= dt;
+      this.input.clear();
+      if (this.stateTimer <= 0) {
+        this.state = "PLAYING";
+        this.audio.startMusic();
+      }
+      return;
+    }
+
+    if (this.state === "PLAYING") {
+      if (!this.frog.isHopping()) {
+        const dir = this.input.consumeHop();
+        if (dir) {
+          const previousRow = this.frog.row;
+          const previousCol = this.frog.col;
+          this.frog.tryHop(dir);
+          if (this.frog.row !== previousRow || this.frog.col !== previousCol) {
+            this.audio.play("hop");
+          }
+          this.awardForwardStep(previousRow, this.frog.row);
+        }
+      }
+      this.frog.update(dt);
+      this.applyRideDrift(dt);
+      this.checkRoadCollision();
+      this.checkRiverState();
+      this.checkHazardKills();
+      this.checkLadyCollect();
+      this.checkHomeArrival();
+      this.tickTimer(dt);
+    } else if (this.state === "DYING") {
+      this.frog.update(dt);
+      this.stateTimer -= dt;
+      if (this.stateTimer <= 0) this.respawn();
+    } else if (this.state === "LEVEL_COMPLETE") {
+      this.stateTimer -= dt;
+      if (this.stateTimer <= 0) this.advanceLevel();
+    } else if (this.state === "GAME_OVER") {
+      this.stateTimer -= dt;
+    }
+  }
+
+  private awardForwardStep(prevRow: number, newRow: number): void {
+    if (newRow < prevRow && newRow < this.maxRowReached) {
+      this.maxRowReached = newRow;
+      this.addScore(SCORE_PER_STEP);
+    }
+  }
+
+  private checkRoadCollision(): void {
+    const frogRow = this.frog.row;
+    if (frogRow < ROW.ROAD_1 || frogRow > ROW.ROAD_5) return;
+    const lane = this.roadLanes.find((l) => l.cfg.row === frogRow);
+    if (!lane) return;
+
+    const fb = this.frogHitbox();
+    for (const o of lane.obstacles) {
+      const ob = o.bounds();
+      if (
+        fb.x < ob.x + ob.w &&
+        fb.x + fb.w > ob.x &&
+        fb.y < ob.y + ob.h &&
+        fb.y + fb.h > ob.y
+      ) {
+        this.die("splat");
+        return;
+      }
+    }
+  }
+
+  private applyRideDrift(dt: number): void {
+    if (this.frog.isHopping()) return;
+    const platform = this.platformUnderFrog();
+    if (!platform) return;
+    this.frog.drift(platform.direction * platform.speed * dt);
+  }
+
+  private platformUnderFrog(): { direction: 1 | -1; speed: number } | null {
+    const frogRow = this.frog.row;
+    if (frogRow < ROW.RIVER_1 || frogRow > ROW.RIVER_5) return null;
+    const lane = this.riverLanes.find((l) => l.cfg.row === frogRow);
+    if (!lane) return null;
+
+    const fb = this.frogHitbox();
+    for (const o of lane.obstacles) {
+      if (!isPotentiallyRideable(o.kind)) continue;
+      if (!o.isRideableNow()) continue;
+      const ob = o.bounds();
+      const fcx = fb.x + fb.w / 2;
+      if (fcx >= ob.x && fcx <= ob.x + ob.w) {
+        return { direction: o.direction, speed: o.speed };
+      }
+    }
+    return null;
+  }
+
+  private checkRiverState(): void {
+    const frogRow = this.frog.row;
+    if (frogRow < ROW.RIVER_1 || frogRow > ROW.RIVER_5) return;
+    if (this.frog.isHopping()) return;
+
+    if (this.platformUnderFrog() === null) {
+      this.die("drown");
+      return;
+    }
+    const pos = this.frog.tilePosition();
+    if (pos.x < -TILE / 2 || pos.x > COLS * TILE - TILE / 2) {
+      this.die("drown");
+    }
+  }
+
+  private checkHazardKills(): void {
+    if (this.frog.isHopping()) return;
+    const fb = this.frogHitbox();
+
+    // Croc mouths on the frog's river row.
+    const frogRow = this.frog.row;
+    if (frogRow >= ROW.RIVER_1 && frogRow <= ROW.RIVER_5) {
+      const lane = this.riverLanes.find((l) => l.cfg.row === frogRow);
+      if (lane) {
+        for (const o of lane.obstacles) {
+          const lethal = o.lethalBounds();
+          if (!lethal) continue;
+          if (
+            fb.x < lethal.x + lethal.w &&
+            fb.x + fb.w > lethal.x &&
+            fb.y < lethal.y + lethal.h &&
+            fb.y + fb.h > lethal.y
+          ) {
+            this.die("splat");
+            return;
+          }
+        }
+      }
+    }
+
+    // Snake on the median.
+    if (frogRow === ROW.MEDIAN) {
+      const lethal = this.bonuses.snakeLethalBounds();
+      if (
+        lethal &&
+        fb.x < lethal.x + lethal.w &&
+        fb.x + fb.w > lethal.x &&
+        fb.y < lethal.y + lethal.h &&
+        fb.y + fb.h > lethal.y
+      ) {
+        this.die("splat");
+      }
+    }
+  }
+
+  private checkLadyCollect(): void {
+    if (this.frog.isHopping()) return;
+    if (!this.features.ladyFrog) return;
+    // Pickup only — score is awarded when she is delivered home.
+    if (this.bonuses.tryCollectLady(this.frogHitbox())) {
+      this.audio.play("home");
+    }
+  }
+
+  private checkHomeArrival(): void {
+    if (this.frog.row !== ROW.HOMES) return;
+    if (this.frog.isHopping()) return;
+
+    const pos = this.frog.tilePosition();
+    const result = this.homes.tryFill(pos.x);
+    if (result === "death") {
+      this.die("splat");
+      return;
+    }
+
+    this.addScore(SCORE_PER_HOME);
+    const timeBonus = Math.floor(this.timeRemainingSec) * SCORE_PER_TIME_SECOND;
+    this.addScore(timeBonus);
+    if (result.flyBonus) {
+      this.addScore(SCORE_FLY_BONUS);
+      this.audio.play("extra_life");
+    }
+    if (this.bonuses.deliverLady()) {
+      this.addScore(SCORE_LADY_BONUS);
+      this.audio.play("extra_life");
+    }
+
+    this.audio.play("home");
+
+    if (this.homes.allFilled()) {
+      this.addScore(SCORE_LEVEL_BONUS);
+      this.audio.play("level_complete");
+      this.state = "LEVEL_COMPLETE";
+      this.stateTimer = LEVEL_COMPLETE_DURATION;
+    } else {
+      this.frog.reset(FROG_START_COL, FROG_START_ROW);
+      this.maxRowReached = FROG_START_ROW;
+      this.timeRemainingSec = TIME_LIMIT_SECONDS;
+      this.hud.timeRemaining = 1;
+      this.timeWarningSounded = false;
+      this.input.clear();
+      this.enterReady();
+    }
+  }
+
+  private tickTimer(dt: number): void {
+    this.timeRemainingSec -= dt;
+    this.hud.timeRemaining = Math.max(0, this.timeRemainingSec / TIME_LIMIT_SECONDS);
+    if (!this.timeWarningSounded && this.timeRemainingSec <= 5 && this.timeRemainingSec > 0) {
+      this.timeWarningSounded = true;
+      this.audio.play("time_warning");
+    }
+    if (this.timeRemainingSec <= 0) {
+      this.die("splat");
+    }
+  }
+
+  private addScore(amount: number): void {
+    this.hud.score += amount;
+    if (this.hud.score > this.hud.hiScore) this.hud.hiScore = this.hud.score;
+    if (!this.extraLifeAwarded && this.hud.score >= EXTRA_LIFE_AT) {
+      this.extraLifeAwarded = true;
+      this.hud.lives++;
+      this.audio.play("extra_life");
+    }
+  }
+
+  private frogHitbox(): { x: number; y: number; w: number; h: number } {
+    const pos = this.frog.tilePosition();
+    return {
+      x: pos.x + FROG_HITBOX_INSET,
+      y: pos.y + FROG_HITBOX_INSET,
+      w: TILE - FROG_HITBOX_INSET * 2,
+      h: TILE - FROG_HITBOX_INSET * 2,
+    };
+  }
+
+  private die(kind: DeathKind): void {
+    this.state = "DYING";
+    this.stateTimer = DEATH_DURATION;
+    this.hud.lives = Math.max(0, this.hud.lives - 1);
+    this.frog.startDying(kind, DEATH_DURATION);
+    this.bonuses.dropLady();
+    this.audio.play(kind === "splat" ? "splat" : "plunk");
+    this.input.clear();
+  }
+
+  private respawn(): void {
+    if (this.hud.lives <= 0) {
+      this.state = "GAME_OVER";
+      this.stateTimer = GAME_OVER_DURATION;
+      this.audio.stopMusic();
+      // Persist the hi-score if we beat it this run.
+      const stored = parseInt(localStorage.getItem(HIGH_SCORE_KEY) || "0", 10);
+      if (this.hud.hiScore > stored) {
+        localStorage.setItem(HIGH_SCORE_KEY, String(this.hud.hiScore));
+      }
+      return;
+    }
+    this.frog.reset(FROG_START_COL, FROG_START_ROW);
+    this.maxRowReached = FROG_START_ROW;
+    this.timeRemainingSec = TIME_LIMIT_SECONDS;
+    this.hud.timeRemaining = 1;
+    this.timeWarningSounded = false;
+    this.input.clear();
+    this.enterReady();
+  }
+
+  private advanceLevel(): void {
+    this.hud.level++;
+    this.homes.reset();
+    this.bonuses.reset();
+    this.frog.reset(FROG_START_COL, FROG_START_ROW);
+    this.maxRowReached = FROG_START_ROW;
+    this.timeRemainingSec = TIME_LIMIT_SECONDS;
+    this.hud.timeRemaining = 1;
+    this.timeWarningSounded = false;
+    this.input.clear();
+    this.spawnLanesForLevel();
+    this.enterReady();
+  }
+
+  private spawnLanesForLevel(): void {
+    this.features = featuresForLevel(this.hud.level);
+    const mult = levelSpeedMultiplier(this.hud.level);
+    this.roadLanes = ROAD_LANES.map(
+      (cfg) => new Lane({ ...cfg, speed: cfg.speed * mult }, this.sprites)
+    );
+    this.riverLanes = RIVER_LANES.map((cfg) => {
+      const isTurtle = cfg.kind === "turtle_pair" || cfg.kind === "turtle_trio";
+      return new Lane(
+        {
+          ...cfg,
+          speed: cfg.speed * mult,
+          diveChance: isTurtle && this.features.divingTurtles ? this.features.diveChance : 0,
+          crocChance: cfg.kind === "log_long" ? this.features.crocChance : 0,
+        },
+        this.sprites
+      );
+    });
+    this.homes.setBonuses({
+      fly: this.features.flyBonus,
+      crocHead: this.features.crocodiles,
+      intervalSec: this.features.flyIntervalSec,
+    });
+    this.bonuses.reset();
+  }
+
+  private enterReady(): void {
+    this.state = "READY";
+    this.stateTimer = READY_DURATION;
+    this.input.clear();
+  }
+
+  private enterAttract(): void {
+    this.state = "ATTRACT";
+    this.stateTimer = 0;
+    this.attractBlink = 0;
+    this.hud = {
+      score: 0,
+      hiScore: this.hud.hiScore,
+      lives: 3,
+      level: 1,
+      timeRemaining: 1,
+    };
+    this.homes.reset();
+    this.bonuses.reset();
+    this.frog.reset(FROG_START_COL, FROG_START_ROW);
+    this.maxRowReached = FROG_START_ROW;
+    this.timeRemainingSec = TIME_LIMIT_SECONDS;
+    this.timeWarningSounded = false;
+    this.extraLifeAwarded = false;
+    this.input.clear();
+    this.spawnLanesForLevel();
+    this.audio.stopMusic();
+  }
+
+  private startNewGame(): void {
+    this.hud = { score: 0, hiScore: this.hud.hiScore, lives: 3, level: 1, timeRemaining: 1 };
+    this.homes.reset();
+    this.bonuses.reset();
+    this.frog.reset(FROG_START_COL, FROG_START_ROW);
+    this.maxRowReached = FROG_START_ROW;
+    this.timeRemainingSec = TIME_LIMIT_SECONDS;
+    this.hud.timeRemaining = 1;
+    this.timeWarningSounded = false;
+    this.extraLifeAwarded = false;
+    this.input.clear();
+    this.spawnLanesForLevel();
+    this.audio.startMusic();
+    this.enterReady();
+  }
+
+  private render(): void {
+    const { ctx } = this;
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+    drawWorldBackground(ctx);
+    for (const lane of this.allLanes) lane.draw(ctx);
+    this.homes.draw(ctx);
+    if (this.state !== "ATTRACT") this.frog.draw(ctx);
+    // Draw lady after frog so she rides visibly beside the player when carried.
+    const frogPix = this.frog.pixelPosition();
+    this.bonuses.draw(
+      ctx,
+      this.state !== "ATTRACT" && !this.frog.isDying()
+        ? {
+            x: frogPix.x + TILE / 2,
+            y: frogPix.y + TILE / 2,
+            facing: this.frog.facing,
+          }
+        : null
+    );
+    if (this.debug) this.drawDebugOverlay();
+    drawHUD(ctx, this.hud, this.sprites);
+
+    if (this.state === "ATTRACT") this.drawAttractOverlay();
+    else if (this.state === "READY") this.drawCenteredBanner("READY!");
+    else if (this.state === "LEVEL_COMPLETE") this.drawCenteredBanner("LEVEL COMPLETE!");
+    else if (this.state === "GAME_OVER") this.drawCenteredBanner("GAME OVER  -  ENTER TO RESTART");
+  }
+
+  private drawAttractOverlay(): void {
+    const { ctx } = this;
+    const titleY = (ROW.MEDIAN + 0.5) * TILE;
+    ctx.fillStyle = "rgba(0,0,0,0.65)";
+    ctx.fillRect(0, titleY - 28, WIDTH, 56);
+
+    ctx.fillStyle = PALETTE.hudYellow;
+    ctx.font = `bold 18px "Press Start 2P", monospace`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("FROGGER", WIDTH / 2, titleY - 10);
+
+    // Blink "PRESS ENTER" ~2Hz so the attract screen feels alive.
+    const showPrompt = Math.floor(this.attractBlink * 2) % 2 === 0;
+    if (showPrompt) {
+      ctx.fillStyle = PALETTE.hudCyan;
+      ctx.font = `bold 10px "Press Start 2P", monospace`;
+      ctx.fillText("PRESS ENTER", WIDTH / 2, titleY + 14);
+    }
+  }
+
+  private drawCenteredBanner(text: string): void {
+    const { ctx } = this;
+    const y = (ROW.MEDIAN + 0.5) * TILE;
+    ctx.fillStyle = "rgba(0,0,0,0.65)";
+    ctx.fillRect(0, y - 14, WIDTH, 32);
+    ctx.fillStyle = PALETTE.hudYellow;
+    ctx.font = `bold 14px "Press Start 2P", monospace`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, WIDTH / 2, y + 2);
+  }
+
+  private drawDebugOverlay(): void {
+    const { ctx } = this;
+    const fb = this.frogHitbox();
+    ctx.strokeStyle = "rgba(255,0,0,0.9)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(fb.x + 0.5, fb.y + 0.5, fb.w - 1, fb.h - 1);
+    ctx.strokeStyle = "rgba(0,255,255,0.6)";
+    for (const lane of this.allLanes) {
+      for (const o of lane.obstacles) {
+        const ob = o.bounds();
+        ctx.strokeRect(ob.x + 0.5, ob.y + 0.5, ob.w - 1, ob.h - 1);
+      }
+    }
+  }
+
+  private fitCanvas(canvas: HTMLCanvasElement): void {
+    const scale = Math.max(
+      1,
+      Math.floor(Math.min(window.innerWidth / WIDTH, window.innerHeight / HEIGHT))
+    );
+    canvas.style.width = `${WIDTH * scale}px`;
+    canvas.style.height = `${HEIGHT * scale}px`;
+  }
+}
