@@ -99,29 +99,69 @@ export class Audio {
   private schedulerHandle: number | null = null;
   private eighthsPlayed = 0;
   private inIntro = true;
+  private unlocked = false;
   private melody: VoiceCursor = { steps: INTRO_MELODY, index: 0, remaining: 0 };
   private bass: VoiceCursor = { steps: INTRO_BASS, index: 0, remaining: 0 };
 
   // The browser blocks AudioContext until a user gesture. Call this from a
-  // keydown / click handler to prime the audio chain.
-  ensureStarted(): void {
-    if (this.ctx) return;
-    const Ctx = window.AudioContext;
-    if (!Ctx) return;
-    this.ctx = new Ctx();
-    const master = this.ctx.createGain();
-    master.gain.value = 0.45;
-    master.connect(this.ctx.destination);
-    this.masterGain = master;
+  // keydown / pointer handler — and again later, since mobile may re-suspend.
+  ensureStarted(): Promise<void> {
+    if (!this.ctx) {
+      const Ctx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return Promise.resolve();
+      this.ctx = new Ctx();
+      const master = this.ctx.createGain();
+      master.gain.value = 0.45;
+      master.connect(this.ctx.destination);
+      this.masterGain = master;
 
-    const music = this.ctx.createGain();
-    // Reason: arcade leaves one AY voice for SFX; keep music quieter under hops.
-    music.gain.value = 0.14;
-    music.connect(master);
-    this.musicGain = music;
+      const music = this.ctx.createGain();
+      // Reason: arcade leaves one AY voice for SFX; keep music quieter under hops.
+      music.gain.value = 0.14;
+      music.connect(master);
+      this.musicGain = music;
+
+      // Reason: iOS suspends the context when the tab backgrounds; resume on return.
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") void this.ensureStarted();
+      });
+    }
+
+    return this.resumeContext().then(() => {
+      this.unlockWithSilentBuffer();
+    });
+  }
+
+  private resumeContext(): Promise<void> {
+    if (!this.ctx) return Promise.resolve();
+    if (this.ctx.state === "suspended") {
+      // Reason: creating AudioContext on iOS/Safari leaves it suspended until resume()
+      // runs inside a user-gesture stack (or shortly after one).
+      return this.ctx.resume().then(() => undefined);
+    }
+    return Promise.resolve();
+  }
+
+  private unlockWithSilentBuffer(): void {
+    // Reason: some mobile WebKits need an actual node start() during the gesture
+    // before later scheduled oscillators are audible.
+    if (!this.ctx || this.unlocked) return;
+    try {
+      const buffer = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
+      const src = this.ctx.createBufferSource();
+      src.buffer = buffer;
+      src.connect(this.ctx.destination);
+      src.start(0);
+      this.unlocked = true;
+    } catch {
+      // Ignore unlock failures; resume() alone is enough on most browsers.
+    }
   }
 
   toggleMute(): void {
+    void this.ensureStarted();
     this.muted = !this.muted;
     if (!this.masterGain || !this.ctx) return;
     this.masterGain.gain.setTargetAtTime(this.muted ? 0 : 0.45, this.ctx.currentTime, 0.05);
@@ -132,6 +172,7 @@ export class Audio {
   }
 
   play(name: SfxName): void {
+    void this.ensureStarted();
     if (!this.ctx || this.muted) return;
     const t = this.ctx.currentTime;
     switch (name) {
@@ -169,15 +210,17 @@ export class Audio {
   }
 
   startMusic(): void {
-    if (!this.ctx || !this.musicGain) return;
-    if (this.musicEnabled) return;
-    this.musicEnabled = true;
-    this.inIntro = true;
-    this.eighthsPlayed = 0;
-    this.melody = { steps: INTRO_MELODY, index: 0, remaining: 0 };
-    this.bass = { steps: INTRO_BASS, index: 0, remaining: 0 };
-    this.nextEighthTime = this.ctx.currentTime + 0.05;
-    this.scheduleTick();
+    void this.ensureStarted().then(() => {
+      if (!this.ctx || !this.musicGain) return;
+      if (this.musicEnabled) return;
+      this.musicEnabled = true;
+      this.inIntro = true;
+      this.eighthsPlayed = 0;
+      this.melody = { steps: INTRO_MELODY, index: 0, remaining: 0 };
+      this.bass = { steps: INTRO_BASS, index: 0, remaining: 0 };
+      this.nextEighthTime = this.ctx.currentTime + 0.05;
+      this.scheduleTick();
+    });
   }
 
   stopMusic(): void {

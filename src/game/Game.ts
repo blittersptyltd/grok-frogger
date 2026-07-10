@@ -104,9 +104,10 @@ export class Game {
     if (touch?.muteBtn) {
       touch.muteBtn.addEventListener("pointerdown", (e) => {
         e.preventDefault();
-        this.audio.ensureStarted();
-        this.audio.toggleMute();
-        this.syncMuteLabel();
+        void this.audio.ensureStarted().then(() => {
+          this.audio.toggleMute();
+          this.syncMuteLabel();
+        });
       });
     }
 
@@ -116,7 +117,7 @@ export class Game {
 
     window.addEventListener("keydown", (e) => {
       // Browser policy requires a user gesture before audio can start.
-      this.audio.ensureStarted();
+      void this.audio.ensureStarted();
 
       // Reason: KeyD is move-right in Input; use backtick for debug overlay.
       if (e.code === "Backquote") this.debug = !this.debug;
@@ -128,14 +129,13 @@ export class Game {
       if (this.state === "PLAYING" || this.state === "READY") this.audio.startMusic();
     });
 
-    // First pointer anywhere unlocks audio (needed for mute/start/D-pad).
-    window.addEventListener(
-      "pointerdown",
-      () => {
-        this.audio.ensureStarted();
-      },
-      { once: false, passive: true }
-    );
+    // Reason: unlock in capture phase during the gesture itself. iOS Safari often
+    // keeps AudioContext suspended if resume() only runs later in the game loop.
+    const unlockAudio = (): void => {
+      void this.audio.ensureStarted();
+    };
+    window.addEventListener("pointerdown", unlockAudio, { capture: true, passive: true });
+    window.addEventListener("touchstart", unlockAudio, { capture: true, passive: true });
 
     this.spawnLanesForLevel();
     // Attract mode: hide the frog until the player starts.
@@ -180,8 +180,9 @@ export class Game {
       // but still accept confirm (tap / START / Enter).
       this.input.consumeHop();
       if (this.input.consumeConfirm()) {
-        this.audio.ensureStarted();
-        this.startNewGame();
+        void this.audio.ensureStarted().then(() => {
+          this.startNewGame();
+        });
       }
       return;
     }

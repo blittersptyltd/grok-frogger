@@ -12,6 +12,8 @@
 
 Browsers block `AudioContext` until a user gesture. Call `audio.ensureStarted()` from keydown/click before `startMusic()` / `play()`.
 
+**Mobile (2026-07-10):** Creating the context is not enough on iOS/Safari — it stays `suspended` until `await ctx.resume()`, ideally during the gesture (capture-phase `pointerdown`/`touchstart`). Also start a 1-sample silent buffer once. Re-call ensure/resume on `visibilitychange` when returning to the tab. Hardware silent switch / low volume can still mute phone speakers.
+
 ## Sprite pipeline
 
 Runtime assets are `public/sprites/cut/*.png` only. Large intermediate dumps (`frogger-clean/`, sheet variants) are tooling output — keep them gitignored.
