@@ -8,11 +8,14 @@
 
 `src/Constants.ts` duplicated `types.ts` + `game/Constants.ts` and was unused. Prefer a single source: dimensions/palette/types in `types.ts`, tunables in `game/Constants.ts`.
 
-## Audio unlock
+## Attract overlay covered the median (2026-07-10)
 
-Browsers block `AudioContext` until a user gesture. Call `audio.ensureStarted()` from keydown/click before `startMusic()` / `play()`.
+Title banner was centered on `ROW.MEDIAN` with a dark `fillRect`, so the purple centre bank looked missing until PLAYING. Move banners to `ROW.ROAD_3` (asphalt).
 
-**Mobile (2026-07-10):** Creating the context is not enough on iOS/Safari — it stays `suspended` until `await ctx.resume()`, ideally during the gesture (capture-phase `pointerdown`/`touchstart`). Also start a 1-sample silent buffer once. Re-call ensure/resume on `visibilitychange` when returning to the tab. Hardware silent switch / low volume can still mute phone speakers.
+## Double frog on last home (2026-07-10)
+
+On level clear, `frog_in_home` is drawn in the alcove while the player frog stayed on `ROW.HOMES` for the whole `LEVEL_COMPLETE` banner. Reset + skip drawing the player (and carried lady) during `LEVEL_COMPLETE`.
+
 
 ## Sprite pipeline
 

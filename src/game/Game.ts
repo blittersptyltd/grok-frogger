@@ -386,8 +386,12 @@ export class Game {
     if (this.homes.allFilled()) {
       this.addScore(SCORE_LEVEL_BONUS);
       this.audio.play("level_complete");
+      // Reason: seat sprite is already in the alcove — hide the player frog so
+      // we don't draw two frogs stacked in the last home during the banner.
+      this.frog.reset(FROG_START_COL, FROG_START_ROW);
       this.state = "LEVEL_COMPLETE";
       this.stateTimer = LEVEL_COMPLETE_DURATION;
+      this.input.clear();
     } else {
       this.frog.reset(FROG_START_COL, FROG_START_ROW);
       this.maxRowReached = FROG_START_ROW;
@@ -575,12 +579,15 @@ export class Game {
     drawWorldBackground(ctx);
     for (const lane of this.allLanes) lane.draw(ctx);
     this.homes.draw(ctx);
-    if (this.state !== "ATTRACT") this.frog.draw(ctx);
+    // Reason: hide player during ATTRACT and LEVEL_COMPLETE (home sprites own the bay).
+    if (this.state !== "ATTRACT" && this.state !== "LEVEL_COMPLETE") this.frog.draw(ctx);
     // Draw lady after frog so she rides visibly beside the player when carried.
     const frogPix = this.frog.pixelPosition();
     this.bonuses.draw(
       ctx,
-      this.state !== "ATTRACT" && !this.frog.isDying()
+      this.state !== "ATTRACT" &&
+        this.state !== "LEVEL_COMPLETE" &&
+        !this.frog.isDying()
         ? {
             x: frogPix.x + TILE / 2,
             y: frogPix.y + TILE / 2,
@@ -602,7 +609,10 @@ export class Game {
 
   private drawAttractOverlay(): void {
     const { ctx } = this;
-    const titleY = (ROW.MEDIAN + 0.5) * TILE;
+    // Reason: banner used to sit on the median and painted it out with a dark
+    // bar — looked like the centre strip was missing until PLAYING. Park it on
+    // the road asphalt instead so both banks stay visible in attract.
+    const titleY = (ROW.ROAD_3 + 0.5) * TILE;
     ctx.fillStyle = "rgba(0,0,0,0.65)";
     ctx.fillRect(0, titleY - 28, WIDTH, 56);
 
@@ -623,7 +633,7 @@ export class Game {
 
   private drawCenteredBanner(text: string): void {
     const { ctx } = this;
-    const y = (ROW.MEDIAN + 0.5) * TILE;
+    const y = (ROW.ROAD_3 + 0.5) * TILE;
     ctx.fillStyle = "rgba(0,0,0,0.65)";
     ctx.fillRect(0, y - 14, WIDTH, 32);
     ctx.fillStyle = PALETTE.hudYellow;
