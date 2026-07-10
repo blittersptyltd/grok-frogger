@@ -31,7 +31,7 @@ Ordered for continued development. Check off as done.
 - [x] Crocodiles on river — unlock L3+
 - [x] Snakes on median — unlock L3+
 - [x] Lady frog on logs — unlock L4+
-- Touch / mobile controls
+- [x] Touch / mobile controls — hybrid D-pad + swipe + tap/START
 - Replace synth audio with authentic arcade samples
 
 ## Level unlocks

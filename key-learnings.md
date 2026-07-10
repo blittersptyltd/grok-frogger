@@ -41,3 +41,8 @@ Generic major-key loop replaced with transcribed Frogger themes from computerarc
 ## Level hazards & bonuses (2026-07-09)
 
 Unlock schedule in `Levels.ts`: L2 diving turtles + fly, L3 crocs + snakes, L4 lady frog. Diving turtles drown when fully submerged (`isRideableNow`). Croc body is rideable; mouth (`lethalBounds`) kills. Snake patrols median. Fly relocates among empty homes; lady rides a random log.
+
+## Mobile layout + touch (2026-07-10)
+
+Integer canvas CSS scale (`Math.floor`) breaks on phones once a D-pad reserves vertical space — `floor(0.87)=0` then `max(1,…)` overflows the stage. Fit to `#stage` and allow fractional scale when `raw < 1`. Hybrid controls: D-pad one-shot hops + swipe (≥28px) + short tap/START as confirm. Clear hops (not confirm) on ATTRACT so leftover swipes don’t fire after READY. `touch-action: none` + non-passive `touchmove` preventDefault stops iOS rubber-banding from eating gestures.
+

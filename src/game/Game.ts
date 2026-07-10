@@ -80,39 +80,68 @@ export class Game {
     timeRemaining: 1,
   };
 
-  constructor(canvas: HTMLCanvasElement) {
+  private canvas: HTMLCanvasElement;
+  private actionBtn: HTMLButtonElement | null = null;
+  private muteBtn: HTMLButtonElement | null = null;
+  private touchUi = false;
+
+  constructor(canvas: HTMLCanvasElement, touch?: TouchUiElements) {
+    this.canvas = canvas;
     canvas.width = WIDTH;
     canvas.height = HEIGHT;
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("2d context unavailable");
     ctx.imageSmoothingEnabled = false;
     this.ctx = ctx;
-    this.fitCanvas(canvas);
-    window.addEventListener("resize", () => this.fitCanvas(canvas));
+
+    this.touchUi = Boolean(touch?.enabled);
+    this.actionBtn = touch?.actionBtn ?? null;
+    this.muteBtn = touch?.muteBtn ?? null;
+
+    this.input.attachSwipeSurface(canvas);
+    if (touch?.dpad) this.input.attachDpad(touch.dpad);
+    if (touch?.actionBtn) this.input.attachConfirmButton(touch.actionBtn);
+    if (touch?.muteBtn) {
+      touch.muteBtn.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        this.audio.ensureStarted();
+        this.audio.toggleMute();
+        this.syncMuteLabel();
+      });
+    }
+
+    this.fitCanvas();
+    window.addEventListener("resize", this.onViewportChange);
+    window.visualViewport?.addEventListener("resize", this.onViewportChange);
+
     window.addEventListener("keydown", (e) => {
       // Browser policy requires a user gesture before audio can start.
       this.audio.ensureStarted();
 
       // Reason: KeyD is move-right in Input; use backtick for debug overlay.
       if (e.code === "Backquote") this.debug = !this.debug;
-      if (e.code === "KeyM") this.audio.toggleMute();
-
-      if (e.code === "Enter") {
-        if (this.state === "ATTRACT") {
-          this.startNewGame();
-          return;
-        }
-        if (this.state === "GAME_OVER" && this.stateTimer <= 0) {
-          this.enterAttract();
-          return;
-        }
+      if (e.code === "KeyM") {
+        this.audio.toggleMute();
+        this.syncMuteLabel();
       }
 
       if (this.state === "PLAYING" || this.state === "READY") this.audio.startMusic();
     });
+
+    // First pointer anywhere unlocks audio (needed for mute/start/D-pad).
+    window.addEventListener(
+      "pointerdown",
+      () => {
+        this.audio.ensureStarted();
+      },
+      { once: false, passive: true }
+    );
+
     this.spawnLanesForLevel();
     // Attract mode: hide the frog until the player starts.
     this.frog.reset(FROG_START_COL, FROG_START_ROW);
+    this.syncActionLabel();
+    this.syncMuteLabel();
   }
 
   async start(): Promise<void> {
@@ -147,7 +176,13 @@ export class Game {
 
     if (this.state === "ATTRACT") {
       this.attractBlink += dt;
-      this.input.clear();
+      // Reason: clear hops so leftover swipes don't fire on first READY frame,
+      // but still accept confirm (tap / START / Enter).
+      this.input.consumeHop();
+      if (this.input.consumeConfirm()) {
+        this.audio.ensureStarted();
+        this.startNewGame();
+      }
       return;
     }
 
@@ -157,11 +192,14 @@ export class Game {
       if (this.stateTimer <= 0) {
         this.state = "PLAYING";
         this.audio.startMusic();
+        this.syncActionLabel();
       }
       return;
     }
 
     if (this.state === "PLAYING") {
+      // Ignore confirm taps during play so accidental canvas taps don't restart.
+      this.input.consumeConfirm();
       if (!this.frog.isHopping()) {
         const dir = this.input.consumeHop();
         if (dir) {
@@ -183,14 +221,21 @@ export class Game {
       this.checkHomeArrival();
       this.tickTimer(dt);
     } else if (this.state === "DYING") {
+      this.input.clear();
       this.frog.update(dt);
       this.stateTimer -= dt;
       if (this.stateTimer <= 0) this.respawn();
     } else if (this.state === "LEVEL_COMPLETE") {
+      this.input.clear();
       this.stateTimer -= dt;
       if (this.stateTimer <= 0) this.advanceLevel();
     } else if (this.state === "GAME_OVER") {
+      this.input.consumeHop();
       this.stateTimer -= dt;
+      if (this.stateTimer <= 0) {
+        this.syncActionLabel();
+        if (this.input.consumeConfirm()) this.enterAttract();
+      }
     }
   }
 
@@ -400,6 +445,7 @@ export class Game {
       this.state = "GAME_OVER";
       this.stateTimer = GAME_OVER_DURATION;
       this.audio.stopMusic();
+      this.syncActionLabel();
       // Persist the hi-score if we beat it this run.
       const stored = parseInt(localStorage.getItem(HIGH_SCORE_KEY) || "0", 10);
       if (this.hud.hiScore > stored) {
@@ -460,6 +506,7 @@ export class Game {
     this.state = "READY";
     this.stateTimer = READY_DURATION;
     this.input.clear();
+    this.syncActionLabel();
   }
 
   private enterAttract(): void {
@@ -483,6 +530,7 @@ export class Game {
     this.input.clear();
     this.spawnLanesForLevel();
     this.audio.stopMusic();
+    this.syncActionLabel();
   }
 
   private startNewGame(): void {
@@ -499,6 +547,25 @@ export class Game {
     this.spawnLanesForLevel();
     this.audio.startMusic();
     this.enterReady();
+  }
+
+  private syncActionLabel(): void {
+    if (!this.actionBtn) return;
+    if (this.state === "ATTRACT") {
+      this.actionBtn.textContent = "START";
+      this.actionBtn.disabled = false;
+    } else if (this.state === "GAME_OVER") {
+      this.actionBtn.textContent = "AGAIN";
+      this.actionBtn.disabled = this.stateTimer > 0;
+    } else {
+      this.actionBtn.textContent = "PLAY";
+      this.actionBtn.disabled = true;
+    }
+  }
+
+  private syncMuteLabel(): void {
+    if (!this.muteBtn) return;
+    this.muteBtn.textContent = this.audio.isMuted() ? "UNMUTE" : "MUTE";
   }
 
   private render(): void {
@@ -526,7 +593,10 @@ export class Game {
     if (this.state === "ATTRACT") this.drawAttractOverlay();
     else if (this.state === "READY") this.drawCenteredBanner("READY!");
     else if (this.state === "LEVEL_COMPLETE") this.drawCenteredBanner("LEVEL COMPLETE!");
-    else if (this.state === "GAME_OVER") this.drawCenteredBanner("GAME OVER  -  ENTER TO RESTART");
+    else if (this.state === "GAME_OVER") {
+      const hint = this.touchUi ? "TAP TO CONTINUE" : "ENTER TO RESTART";
+      this.drawCenteredBanner(this.stateTimer > 0 ? "GAME OVER" : `GAME OVER  -  ${hint}`);
+    }
   }
 
   private drawAttractOverlay(): void {
@@ -541,12 +611,12 @@ export class Game {
     ctx.textBaseline = "middle";
     ctx.fillText("FROGGER", WIDTH / 2, titleY - 10);
 
-    // Blink "PRESS ENTER" ~2Hz so the attract screen feels alive.
+    // Blink prompt ~2Hz so the attract screen feels alive.
     const showPrompt = Math.floor(this.attractBlink * 2) % 2 === 0;
     if (showPrompt) {
       ctx.fillStyle = PALETTE.hudCyan;
       ctx.font = `bold 10px "Press Start 2P", monospace`;
-      ctx.fillText("PRESS ENTER", WIDTH / 2, titleY + 14);
+      ctx.fillText(this.touchUi ? "TAP TO START" : "PRESS ENTER", WIDTH / 2, titleY + 14);
     }
   }
 
@@ -577,12 +647,36 @@ export class Game {
     }
   }
 
-  private fitCanvas(canvas: HTMLCanvasElement): void {
-    const scale = Math.max(
-      1,
-      Math.floor(Math.min(window.innerWidth / WIDTH, window.innerHeight / HEIGHT))
-    );
-    canvas.style.width = `${WIDTH * scale}px`;
-    canvas.style.height = `${HEIGHT * scale}px`;
+  private onViewportChange = (): void => {
+    this.touchUi = isTouchUiPreferred();
+    document.body.classList.toggle("touch-ui", this.touchUi);
+    this.fitCanvas();
+  };
+
+  private fitCanvas(): void {
+    const stage = document.getElementById("stage") ?? this.canvas.parentElement;
+    const availW = stage?.clientWidth || window.innerWidth;
+    const availH = stage?.clientHeight || window.innerHeight;
+    // Reason: phones often can't fit an integer scale once the D-pad reserves
+    // vertical space — allow fractional CSS size while keeping internal pixels crisp.
+    const raw = Math.min(availW / WIDTH, availH / HEIGHT);
+    const scale = raw >= 1 ? Math.max(1, Math.floor(raw)) : Math.max(0.35, raw);
+    this.canvas.style.width = `${WIDTH * scale}px`;
+    this.canvas.style.height = `${HEIGHT * scale}px`;
   }
+}
+
+export interface TouchUiElements {
+  enabled: boolean;
+  dpad: HTMLElement | null;
+  actionBtn: HTMLButtonElement | null;
+  muteBtn: HTMLButtonElement | null;
+}
+
+export function isTouchUiPreferred(): boolean {
+  return (
+    window.matchMedia("(hover: none)").matches ||
+    window.matchMedia("(pointer: coarse)").matches ||
+    window.matchMedia("(max-width: 820px)").matches
+  );
 }

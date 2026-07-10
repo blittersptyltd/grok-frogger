@@ -11,7 +11,9 @@ A faithful browser clone of the 1981 Konami arcade *Frogger*: chunky pixels, cla
 
 **Playable end-to-end:** hop, road collision, river ride/drown, homes, scoring, timer, lives, level speed scaling, game over + restart, mute, persisted hi-score, synthesised arcade-style audio, ATTRACT → READY → PLAYING, diving turtles, crocs, snakes, fly & lady-frog bonuses.
 
-**Still open:** pixel font loading, mute indicator, tests, touch controls.
+**Still open:** pixel font loading, mute indicator on canvas, tests.
+
+**Recently added:** hybrid mobile touch (on-screen D-pad + swipe-to-hop + tap/START to begin).
 
 ## Stack
 

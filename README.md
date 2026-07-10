@@ -19,12 +19,16 @@ GitHub Pages (after deploy workflow succeeds):
 
 ## Controls
 
-| Key | Action |
+| Input | Action |
 |---|---|
-| Enter | Start from attract / return to attract after game over |
+| Enter / Space / tap playfield / **START** | Start from attract; continue after game over |
 | Arrow keys / WASD | Hop (one hop per press) |
-| M | Mute / unmute |
+| On-screen D-pad | Hop (phones / tablets / narrow windows) |
+| Swipe on playfield | Hop in swipe direction |
+| M / **MUTE** | Mute / unmute |
 | `` ` `` (backtick) | Toggle collision debug overlay |
+
+Touch chrome (D-pad + START/MUTE) appears automatically on coarse-pointer devices and viewports ≤820px. Portrait: pad under the game. Landscape phones: pad beside the game.
 
 ## Project layout
 
