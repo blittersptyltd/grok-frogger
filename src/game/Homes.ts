@@ -4,6 +4,8 @@ import { SpriteSheet } from "./Sprites";
 
 const ALCOVE_HIT_PADDING = 4;
 const FILLED_FROG_SIZE = TILE * 0.7;
+const FLY_X_OFFSET = 3;
+const FLY_Y_OFFSET = 3;
 
 type HomeOccupant = "fly" | "croc" | null;
 
@@ -122,7 +124,14 @@ export class Homes {
         this.sprites.drawCentered(ctx, "frog_in_home", cx, cy, FILLED_FROG_SIZE);
       } else if (this.occupants[i] === "fly") {
         const flyY = y + HOME_ALCOVE.topInset + HOME_ALCOVE.height * 0.45;
-        this.sprites.drawCentered(ctx, "bonus_fly", cx, flyY, TILE * 0.55);
+        // Reason: the cut fly sprite is visually top-left heavy; optically centre it in the bay.
+        this.sprites.drawCentered(
+          ctx,
+          "bonus_fly",
+          cx + FLY_X_OFFSET,
+          flyY + FLY_Y_OFFSET,
+          TILE * 0.55
+        );
       } else if (this.occupants[i] === "croc") {
         // Head-only hazard sits in the alcove mouth.
         this.sprites.drawCentered(ctx, "croc_head", cx, cy, TILE * 0.95);
