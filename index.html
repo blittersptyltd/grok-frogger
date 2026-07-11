@@ -210,6 +210,97 @@
           display: none;
         }
       }
+
+      /* Boot chooser: pick windowed vs fullscreen before play. */
+      #boot-gate {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: calc(16px + var(--safe-t)) calc(16px + var(--safe-r))
+          calc(16px + var(--safe-b)) calc(16px + var(--safe-l));
+        background: rgba(0, 0, 0, 0.88);
+        backdrop-filter: blur(4px);
+      }
+
+      #boot-gate[hidden] {
+        display: none !important;
+      }
+
+      .boot-card {
+        width: min(360px, 100%);
+        background: #0d0d0d;
+        border: 2px solid #2a2a2a;
+        border-radius: 14px;
+        padding: 22px 18px 16px;
+        text-align: center;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+      }
+
+      .boot-card h1 {
+        margin: 0 0 8px;
+        color: #ffff00;
+        font-size: 18px;
+        letter-spacing: 0.06em;
+      }
+
+      .boot-card p {
+        margin: 0 0 16px;
+        color: #9adfff;
+        font-size: 10px;
+        line-height: 1.5;
+      }
+
+      .boot-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .boot-actions button {
+        appearance: none;
+        border: 2px solid var(--pad-edge);
+        background: var(--pad-face);
+        color: var(--pad-accent);
+        border-radius: 10px;
+        font: inherit;
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        padding: 14px 12px;
+        min-height: 48px;
+        cursor: pointer;
+      }
+
+      .boot-actions button:active {
+        background: #222;
+        border-color: var(--pad-accent);
+        color: #fff;
+      }
+
+      #boot-fullscreen {
+        color: var(--pad-green);
+        border-color: #1a5a1a;
+      }
+
+      .boot-note {
+        margin: 14px 0 0 !important;
+        color: #888 !important;
+        font-size: 8px !important;
+        line-height: 1.45 !important;
+      }
+
+      #btn-fullscreen {
+        color: #9adfff;
+      }
+
+      /* Already installed as home-screen app → no need for the chooser. */
+      @media (display-mode: standalone), (display-mode: fullscreen) {
+        #boot-gate {
+          display: none !important;
+        }
+      }
     </style>
   </head>
   <body>
@@ -220,6 +311,7 @@
       <div id="touch-ui" aria-label="Touch controls">
         <div class="side">
           <button type="button" class="pad-btn" id="btn-mute" aria-label="Mute">MUTE</button>
+          <button type="button" class="pad-btn" id="btn-fullscreen" aria-label="Fullscreen">FULL</button>
           <button type="button" class="pad-btn" id="btn-action" aria-label="Start">START</button>
         </div>
         <div id="dpad" role="group" aria-label="Move frog">
@@ -231,6 +323,19 @@
         </div>
       </div>
     </div>
+
+    <div id="boot-gate" role="dialog" aria-modal="true" aria-labelledby="boot-title">
+      <div class="boot-card">
+        <h1 id="boot-title">FROGGER</h1>
+        <p>Choose display mode</p>
+        <div class="boot-actions">
+          <button type="button" id="boot-windowed">WINDOWED</button>
+          <button type="button" id="boot-fullscreen">FULLSCREEN</button>
+        </div>
+        <p id="boot-note" class="boot-note" hidden></p>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

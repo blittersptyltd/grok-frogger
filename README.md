@@ -26,15 +26,19 @@ GitHub Pages (after deploy workflow succeeds):
 | On-screen D-pad | Hop (phones / tablets / narrow windows) |
 | Swipe on playfield | Hop in swipe direction |
 | M / **MUTE** | Mute / unmute |
+| **FULL** | Toggle browser fullscreen |
 | `` ` `` (backtick) | Toggle collision debug overlay |
 
-Touch chrome (D-pad + START/MUTE) appears automatically on coarse-pointer devices and viewports ≤820px. Portrait: pad under the game. Landscape phones: pad beside the game.
+Touch chrome (D-pad + START/MUTE/FULL) appears automatically on coarse-pointer devices and viewports ≤820px. Portrait: pad under the game. Landscape phones: pad beside the game.
+
+On first load a boot chooser offers **WINDOWED** or **FULLSCREEN** (requires a tap — browsers block auto-fullscreen). On iPhone, browser fullscreen is limited; use Share → Add to Home Screen for a true full-screen app shell. The chooser is skipped when already running as an installed standalone web app.
 
 ## Project layout
 
 ```
 src/
-  main.ts              # boot
+  main.ts              # boot + fullscreen gate
+  fullscreen.ts        # Fullscreen API helpers
   types.ts             # dimensions, palette, GameState
   game/
     Game.ts            # loop, state machine, scoring, collisions
@@ -42,7 +46,6 @@ src/
     Input.ts / Audio.ts / Sprites.ts / Constants.ts
 public/sprites/cut/    # runtime sprites (one PNG per sprite)
 scripts/               # one-off sprite extraction helpers
-docs/plans/            # design doc
 ```
 
 ## Specs & tasks

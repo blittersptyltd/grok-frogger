@@ -51,3 +51,7 @@ Unlock schedule in `Levels.ts`: L2 diving turtles + fly, L3 crocs + snakes, L4 l
 
 Integer canvas CSS scale (`Math.floor`) breaks on phones once a D-pad reserves vertical space — `floor(0.87)=0` then `max(1,…)` overflows the stage. Fit to `#stage` and allow fractional scale when `raw < 1`. Hybrid controls: D-pad one-shot hops + swipe (≥28px) + short tap/START as confirm. Clear hops (not confirm) on ATTRACT so leftover swipes don’t fire after READY. `touch-action: none` + non-passive `touchmove` preventDefault stops iOS rubber-banding from eating gestures.
 
+## Fullscreen chooser (2026-07-11)
+
+Browsers block `requestFullscreen` without a user gesture — cannot auto-enter on load. Boot gate offers WINDOWED / FULLSCREEN; `FULL` button re-toggles later. Target `#app` so touch chrome stays available in fullscreen. iOS Safari often refuses non-video fullscreen; document Add to Home Screen as the real fullscreen path and skip the gate in `display-mode: standalone`.
+
