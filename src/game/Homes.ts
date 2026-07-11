@@ -3,6 +3,7 @@ import { ROW, HOME_ALCOVE, homeAlcoveX } from "./World";
 import { SpriteSheet } from "./Sprites";
 
 const ALCOVE_HIT_PADDING = 4;
+const FILLED_FROG_Y_OFFSET = 5;
 
 type HomeOccupant = "fly" | "croc" | null;
 
@@ -117,7 +118,14 @@ export class Homes {
       const cy = y + HOME_ALCOVE.topInset + HOME_ALCOVE.height / 2 + 2;
 
       if (this.filled[i]) {
-        this.sprites.drawCentered(ctx, "frog_in_home", cx, cy, TILE * 0.9);
+        // Reason: seat the frog lower in the bay so its head clears the top hedge.
+        this.sprites.drawCentered(
+          ctx,
+          "frog_in_home",
+          cx,
+          cy + FILLED_FROG_Y_OFFSET,
+          TILE * 0.9
+        );
       } else if (this.occupants[i] === "fly") {
         const flyY = y + HOME_ALCOVE.topInset + HOME_ALCOVE.height * 0.45;
         this.sprites.drawCentered(ctx, "bonus_fly", cx, flyY, TILE * 0.55);
