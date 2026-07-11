@@ -283,7 +283,7 @@
         color: #fff;
       }
 
-      #boot-fullscreen {
+      #boot-primary {
         color: var(--pad-green);
         border-color: #1a5a1a;
       }
@@ -314,6 +314,10 @@
         margin-bottom: 8px;
       }
 
+      #btn-install {
+        color: var(--pad-green);
+      }
+
       #btn-fullscreen {
         color: #9adfff;
       }
@@ -334,7 +338,8 @@
       <div id="touch-ui" aria-label="Touch controls">
         <div class="side">
           <button type="button" class="pad-btn" id="btn-mute" aria-label="Mute">MUTE</button>
-          <button type="button" class="pad-btn" id="btn-fullscreen" aria-label="Fullscreen">FULL</button>
+          <button type="button" class="pad-btn" id="btn-install" aria-label="Add to Home Screen">ICON</button>
+          <button type="button" class="pad-btn" id="btn-fullscreen" aria-label="Fullscreen" hidden>FULL</button>
           <button type="button" class="pad-btn" id="btn-action" aria-label="Start">START</button>
         </div>
         <div id="dpad" role="group" aria-label="Move frog">
@@ -350,10 +355,10 @@
     <div id="boot-gate" role="dialog" aria-modal="true" aria-labelledby="boot-title">
       <div class="boot-card">
         <h1 id="boot-title">FROGGER</h1>
-        <p id="boot-lead">Choose display mode</p>
+        <p id="boot-lead">Add to Home Screen for true fullscreen</p>
         <div class="boot-actions">
-          <button type="button" id="boot-windowed">PLAY</button>
-          <button type="button" id="boot-fullscreen">FULLSCREEN</button>
+          <button type="button" id="boot-primary">HOW TO ADD ICON</button>
+          <button type="button" id="boot-secondary">PLAY IN BROWSER</button>
         </div>
         <div id="boot-help" class="boot-help" hidden>
           <ol id="boot-help-steps"></ol>

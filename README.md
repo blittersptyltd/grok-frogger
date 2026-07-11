@@ -26,12 +26,13 @@ GitHub Pages (after deploy workflow succeeds):
 | On-screen D-pad | Hop (phones / tablets / narrow windows) |
 | Swipe on playfield | Hop in swipe direction |
 | M / **MUTE** | Mute / unmute |
-| **FULL** | Toggle browser fullscreen |
+| **ICON** | Add to Home Screen / install help |
+| **FULL** | Toggle browser fullscreen (Android/desktop where supported) |
 | `` ` `` (backtick) | Toggle collision debug overlay |
 
 Touch chrome (D-pad + START/MUTE/FULL) appears automatically on coarse-pointer devices and viewports ≤820px. Portrait: pad under the game. Landscape phones: pad beside the game.
 
-On first load a boot chooser offers **PLAY** or a fullscreen path (requires a tap — browsers block auto-fullscreen). On iPhone / Telegram / other in-app browsers, fullscreen API cannot hide chrome — the UI shows **Add to Home Screen** steps instead. Install the PWA/home-screen icon for true fullscreen. The chooser is skipped when already running standalone.
+On first load a boot chooser prioritises **Add to Home Screen** / install (requires a tap — browsers block auto-fullscreen). On iPhone / Telegram / other in-app browsers, fullscreen API cannot hide chrome — the UI shows **Add to Home Screen** steps instead. Install the PWA/home-screen icon for true fullscreen. The chooser is skipped when already running standalone.
 
 ## Project layout
 
