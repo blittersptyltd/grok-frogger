@@ -89,7 +89,8 @@ function renderBootCard(): void {
   // Reason: first-play card always shows the install how-to; primary is "got it"
   // unless Chromium can fire a real install prompt right now.
   if (bootPrimary) {
-    bootPrimary.textContent = hasNative ? "ADD TO HOME SCREEN" : "GOT IT — PLAY";
+    // Reason: clear CTA — no "how to" wording; steps below already explain.
+    bootPrimary.textContent = "ADD TO HOME SCREEN";
   }
   if (bootSecondary) bootSecondary.textContent = "PLAY IN BROWSER";
 
