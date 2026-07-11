@@ -82,7 +82,7 @@ export function getInstallGuidance(hasNativePrompt: boolean): InstallGuidance {
     return {
       mode: "in-app",
       lead: "Open in Safari first, then add the home-screen icon.",
-      primaryLabel: "HOW TO ADD ICON",
+      primaryLabel: "GOT IT — PLAY",
       secondaryLabel: "PLAY IN BROWSER",
       steps: [
         "In Telegram/etc, tap ⋯ or the Open-in-browser control.",
@@ -97,7 +97,7 @@ export function getInstallGuidance(hasNativePrompt: boolean): InstallGuidance {
     return {
       mode: "ios",
       lead: "Add Frogger to your Home Screen for true fullscreen.",
-      primaryLabel: "HOW TO ADD ICON",
+      primaryLabel: "GOT IT — PLAY",
       secondaryLabel: "PLAY IN BROWSER",
       steps: [
         "Tap Share (square with ↑) at the bottom of Safari.",
@@ -121,7 +121,7 @@ export function getInstallGuidance(hasNativePrompt: boolean): InstallGuidance {
   return {
     mode: "desktop",
     lead: "Install as an app, or play in this browser window.",
-    primaryLabel: "INSTALL / ADD ICON",
+    primaryLabel: "GOT IT — PLAY",
     secondaryLabel: "PLAY IN BROWSER",
     steps: [
       "Chrome/Edge: menu (⋮) → Install app / Cast, save, and share → Install page as app.",

@@ -13,6 +13,8 @@ import {
   setupInstallability,
 } from "./install";
 
+const BOOT_SEEN_KEY = "frogger-boot-install-seen";
+
 const canvas = document.getElementById("game") as HTMLCanvasElement | null;
 if (!canvas) throw new Error("#game canvas not found");
 
@@ -37,17 +39,35 @@ const touch: TouchUiElements = {
 
 const game = new Game(canvas, touch);
 void game.start();
-void setupInstallability().then(() => refreshBootLabels());
+void setupInstallability().then(() => {
+  // If Android install prompt arrives later, refresh primary label while gate is open.
+  if (bootGate && !bootGate.hidden) renderBootCard();
+});
 
 const browserFs = canUseBrowserFullscreen();
-let helpVisible = false;
+
+function hasSeenBoot(): boolean {
+  try {
+    return localStorage.getItem(BOOT_SEEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markBootSeen(): void {
+  try {
+    localStorage.setItem(BOOT_SEEN_KEY, "1");
+  } catch {
+    // private mode / blocked storage — ignore
+  }
+}
 
 function dismissBootGate(): void {
   if (bootGate) bootGate.hidden = true;
-  helpVisible = false;
+  markBootSeen();
 }
 
-function showSteps(steps: string[], lead?: string): void {
+function renderSteps(steps: string[]): void {
   if (!bootHelp || !bootHelpSteps) return;
   bootHelpSteps.replaceChildren(
     ...steps.map((step) => {
@@ -57,30 +77,28 @@ function showSteps(steps: string[], lead?: string): void {
     })
   );
   bootHelp.hidden = steps.length === 0;
-  helpVisible = steps.length > 0;
-  if (lead && bootLead) bootLead.textContent = lead;
-  if (bootPrimary) bootPrimary.textContent = helpVisible ? "GOT IT — PLAY" : bootPrimary.textContent;
 }
 
-function refreshBootLabels(): void {
-  if (isStandaloneDisplay()) {
-    dismissBootGate();
-    if (installBtn) installBtn.hidden = true;
-    return;
-  }
+function renderBootCard(): void {
+  const hasNative = Boolean(getDeferredInstallPrompt());
+  const guidance = getInstallGuidance(hasNative);
 
-  const guidance = getInstallGuidance(Boolean(getDeferredInstallPrompt()));
   if (bootLead) bootLead.textContent = guidance.lead;
-  if (bootPrimary) bootPrimary.textContent = guidance.primaryLabel;
-  if (bootSecondary) bootSecondary.textContent = guidance.secondaryLabel;
+  renderSteps(guidance.steps);
+
+  // Reason: first-play card always shows the install how-to; primary is "got it"
+  // unless Chromium can fire a real install prompt right now.
+  if (bootPrimary) {
+    bootPrimary.textContent = hasNative ? "ADD TO HOME SCREEN" : "GOT IT — PLAY";
+  }
+  if (bootSecondary) bootSecondary.textContent = "PLAY IN BROWSER";
 
   if (installBtn) {
     installBtn.hidden = false;
     installBtn.textContent = "ICON";
-    installBtn.setAttribute("aria-label", "Add to Home Screen");
+    installBtn.setAttribute("aria-label", "Add to Home Screen help");
   }
 
-  // FULL only useful when browser fullscreen actually hides chrome.
   if (fullscreenBtn) {
     fullscreenBtn.hidden = !browserFs;
     syncFullscreenButton();
@@ -94,78 +112,70 @@ function syncFullscreenButton(): void {
   fullscreenBtn.setAttribute("aria-label", active ? "Exit fullscreen" : "Fullscreen");
 }
 
-async function handleInstallPrimary(): Promise<void> {
-  // After steps are shown, primary becomes "GOT IT — PLAY".
-  if (helpVisible) {
-    dismissBootGate();
-    return;
-  }
-
-  const guidance = getInstallGuidance(Boolean(getDeferredInstallPrompt()));
-
-  if (guidance.mode === "native-prompt") {
+async function handlePrimary(): Promise<void> {
+  // Android/desktop Chromium: try native install when available.
+  if (getDeferredInstallPrompt()) {
     const outcome = await promptInstall();
     if (outcome === "accepted") {
       dismissBootGate();
       return;
     }
-    // Prompt unavailable/dismissed — fall through to manual steps if any.
-    if (guidance.steps.length) showSteps(guidance.steps, guidance.lead);
-    else dismissBootGate();
-    return;
+    // Dismissed / failed — still let them play.
   }
-
-  if (guidance.steps.length) {
-    showSteps(guidance.steps, guidance.lead);
-    if (bootPrimary) bootPrimary.textContent = "GOT IT — PLAY";
-    return;
-  }
-
-  // Desktop without deferred prompt: show menu steps.
-  if (guidance.mode === "desktop") {
-    showSteps(guidance.steps.length ? guidance.steps : [
-      "Use your browser menu to Install app / Add to Home screen.",
-    ], guidance.lead);
-    if (bootPrimary) bootPrimary.textContent = "GOT IT — PLAY";
-    return;
-  }
-
   dismissBootGate();
 }
 
-function setupBootGate(): void {
-  if (!bootGate || isStandaloneDisplay()) {
+function openBootCard(force = false): void {
+  if (!bootGate) return;
+  if (!force && (isStandaloneDisplay() || hasSeenBoot())) {
     dismissBootGate();
+    // Still mark so we don't leave gate half-open if standalone.
+    if (bootGate) bootGate.hidden = true;
+    return;
+  }
+  if (isStandaloneDisplay()) {
+    bootGate.hidden = true;
+    if (installBtn) installBtn.hidden = true;
+    return;
+  }
+  renderBootCard();
+  bootGate.hidden = false;
+}
+
+function setupBootGate(): void {
+  if (!bootGate) return;
+
+  if (isStandaloneDisplay()) {
+    bootGate.hidden = true;
+    if (installBtn) installBtn.hidden = true;
     return;
   }
 
-  refreshBootLabels();
+  // First play (or forced via ICON): show install instructions expanded.
+  openBootCard(false);
 
   bootSecondary?.addEventListener("click", () => {
     dismissBootGate();
   });
 
   bootPrimary?.addEventListener("click", () => {
-    void handleInstallPrimary();
+    void handlePrimary();
   });
 }
 
 setupBootGate();
-window.addEventListener("frogger-install-available", () => refreshBootLabels());
+window.addEventListener("frogger-install-available", () => {
+  if (bootGate && !bootGate.hidden) renderBootCard();
+});
 window.addEventListener("frogger-installed", () => {
   dismissBootGate();
   if (installBtn) installBtn.hidden = true;
 });
 
+// Re-open the first-play install card any time.
 installBtn?.addEventListener("pointerdown", (e) => {
   e.preventDefault();
-  if (bootGate) {
-    bootGate.hidden = false;
-    helpVisible = false;
-    if (bootHelp) bootHelp.hidden = true;
-    refreshBootLabels();
-    void handleInstallPrimary();
-  }
+  openBootCard(true);
 });
 
 fullscreenBtn?.addEventListener("pointerdown", (e) => {
