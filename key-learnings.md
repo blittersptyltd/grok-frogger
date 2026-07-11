@@ -53,5 +53,7 @@ Integer canvas CSS scale (`Math.floor`) breaks on phones once a D-pad reserves v
 
 ## Fullscreen chooser (2026-07-11)
 
-Browsers block `requestFullscreen` without a user gesture — cannot auto-enter on load. Boot gate offers WINDOWED / FULLSCREEN; `FULL` button re-toggles later. Target `#app` so touch chrome stays available in fullscreen. iOS Safari often refuses non-video fullscreen; document Add to Home Screen as the real fullscreen path and skip the gate in `display-mode: standalone`.
+Browsers block `requestFullscreen` without a user gesture — cannot auto-enter on load. Boot gate offers PLAY / fullscreen path; `FULL`/`TIP` re-opens help mid-session. Target `#app` so touch chrome stays available when browser fullscreen works.
+
+**Mobile reality:** iPhone Safari and in-app browsers (Telegram, Instagram, etc.) cannot hide browser chrome for a canvas game. True fullscreen = open in Safari → Share → Add to Home Screen → launch the icon (`display: standalone` via `manifest.webmanifest`). Detect in-app/iOS and show install steps instead of a no-op Fullscreen API call.
 

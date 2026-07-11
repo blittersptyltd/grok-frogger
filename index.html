@@ -10,6 +10,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#000000" />
+    <meta name="apple-mobile-web-app-title" content="Frogger" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
     <title>Frogger</title>
     <style>
       :root {
@@ -291,6 +295,25 @@
         line-height: 1.45 !important;
       }
 
+      .boot-help {
+        margin-top: 14px;
+        text-align: left;
+        border-top: 1px solid #222;
+        padding-top: 12px;
+      }
+
+      .boot-help ol {
+        margin: 0;
+        padding-left: 18px;
+        color: #ccc;
+        font-size: 8px;
+        line-height: 1.55;
+      }
+
+      .boot-help li {
+        margin-bottom: 8px;
+      }
+
       #btn-fullscreen {
         color: #9adfff;
       }
@@ -327,12 +350,14 @@
     <div id="boot-gate" role="dialog" aria-modal="true" aria-labelledby="boot-title">
       <div class="boot-card">
         <h1 id="boot-title">FROGGER</h1>
-        <p>Choose display mode</p>
+        <p id="boot-lead">Choose display mode</p>
         <div class="boot-actions">
-          <button type="button" id="boot-windowed">WINDOWED</button>
+          <button type="button" id="boot-windowed">PLAY</button>
           <button type="button" id="boot-fullscreen">FULLSCREEN</button>
         </div>
-        <p id="boot-note" class="boot-note" hidden></p>
+        <div id="boot-help" class="boot-help" hidden>
+          <ol id="boot-help-steps"></ol>
+        </div>
       </div>
     </div>
 

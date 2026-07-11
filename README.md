@@ -31,7 +31,7 @@ GitHub Pages (after deploy workflow succeeds):
 
 Touch chrome (D-pad + START/MUTE/FULL) appears automatically on coarse-pointer devices and viewports ≤820px. Portrait: pad under the game. Landscape phones: pad beside the game.
 
-On first load a boot chooser offers **WINDOWED** or **FULLSCREEN** (requires a tap — browsers block auto-fullscreen). On iPhone, browser fullscreen is limited; use Share → Add to Home Screen for a true full-screen app shell. The chooser is skipped when already running as an installed standalone web app.
+On first load a boot chooser offers **PLAY** or a fullscreen path (requires a tap — browsers block auto-fullscreen). On iPhone / Telegram / other in-app browsers, fullscreen API cannot hide chrome — the UI shows **Add to Home Screen** steps instead. Install the PWA/home-screen icon for true fullscreen. The chooser is skipped when already running standalone.
 
 ## Project layout
 
