@@ -55,6 +55,7 @@ export class Game {
   private demoMoveIndex = 0;
   private demoMoveTimer = 0;
   private demoHomePause = 0;
+  private attractVideo: HTMLVideoElement;
 
   private input = new Input();
   private sprites = new SpriteSheet();
@@ -91,6 +92,12 @@ export class Game {
 
   constructor(canvas: HTMLCanvasElement, touch?: TouchUiElements) {
     this.canvas = canvas;
+    this.attractVideo = document.createElement("video");
+    this.attractVideo.src = `${import.meta.env.BASE_URL}video/frogger-original-title.mp4`;
+    this.attractVideo.muted = true;
+    this.attractVideo.playsInline = true;
+    this.attractVideo.preload = "auto";
+    this.attractVideo.setAttribute("playsinline", "");
     canvas.width = WIDTH;
     canvas.height = HEIGHT;
     const ctx = canvas.getContext("2d");
@@ -550,6 +557,7 @@ export class Game {
   }
 
   private startNewGame(): void {
+    this.attractVideo.pause();
     this.hud = { score: 0, hiScore: this.hud.hiScore, lives: 3, level: 1, timeRemaining: 1 };
     this.homes.reset();
     this.bonuses.reset();
@@ -591,7 +599,12 @@ export class Game {
     // Original attract instructions replace the playfield with black pages;
     // keep the live scoreboard above them.
     if (this.state === "ATTRACT") {
-      if (this.attractSegment() === 5) {
+      const segment = this.attractSegment();
+      if (segment === 0 && this.attractVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        this.drawOriginalAttractVideo();
+        return;
+      }
+      if (segment === 5) {
         this.drawAttractDemo();
         return;
       }
@@ -631,26 +644,34 @@ export class Game {
   }
 
   private drawAttractOverlay(): void {
-    const cycle = this.attractBlink % 90;
-    if (cycle < 36) this.drawAttractFrogs(cycle);
-    else if (cycle < 45) this.drawAttractPointTable(cycle - 36);
-    else if (cycle < 52) this.drawAttractRanking();
-    else if (cycle < 60) this.drawAttractInstructions();
+    const cycle = this.attractBlink % 93;
+    if (cycle < 39) this.drawAttractFrogs(cycle);
+    else if (cycle < 48) this.drawAttractPointTable(cycle - 39);
+    else if (cycle < 55) this.drawAttractRanking();
+    else if (cycle < 63) this.drawAttractInstructions();
     else this.drawAttractStart();
   }
 
   private attractSegment(): number {
-    const cycle = this.attractBlink % 90;
-    if (cycle < 36) return 0;
-    if (cycle < 45) return 1;
-    if (cycle < 52) return 2;
-    if (cycle < 60) return 3;
-    if (cycle < 65) return 4;
+    const cycle = this.attractBlink % 93;
+    if (cycle < 39) return 0;
+    if (cycle < 48) return 1;
+    if (cycle < 55) return 2;
+    if (cycle < 63) return 3;
+    if (cycle < 68) return 4;
     return 5;
   }
 
   private enterAttractSegment(segment: number): void {
     this.attractSegmentIndex = segment;
+    if (segment === 0) {
+      this.attractVideo.currentTime = 0;
+      void this.attractVideo.play().catch(() => {
+        // Muted autoplay is normally permitted; coded fallback renders if not.
+      });
+    } else {
+      this.attractVideo.pause();
+    }
     if (segment === 0 || segment === 5) {
       this.frog.reset(FROG_START_COL, FROG_START_ROW);
       this.homes.reset();
@@ -692,6 +713,23 @@ export class Game {
       this.demoMoveTimer = 0.42;
     }
     this.frog.update(dt);
+  }
+
+  private drawOriginalAttractVideo(): void {
+    const sourceW = this.attractVideo.videoWidth || 270;
+    const sourceH = this.attractVideo.videoHeight || 360;
+    const scale = Math.min(WIDTH / sourceW, HEIGHT / sourceH);
+    const drawW = sourceW * scale;
+    const drawH = sourceH * scale;
+    this.ctx.fillStyle = PALETTE.black;
+    this.ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    this.ctx.drawImage(
+      this.attractVideo,
+      (WIDTH - drawW) / 2,
+      (HEIGHT - drawH) / 2,
+      drawW,
+      drawH
+    );
   }
 
   private drawAttractFrogs(elapsed: number): void {
