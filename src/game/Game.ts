@@ -51,6 +51,9 @@ export class Game {
   private stateTimer = 0;
   private debug = false;
   private attractBlink = 0;
+  private attractSegmentIndex = -1;
+  private demoMoveIndex = 0;
+  private demoMoveTimer = 0;
 
   private input = new Input();
   private sprites = new SpriteSheet();
@@ -176,6 +179,9 @@ export class Game {
 
     if (this.state === "ATTRACT") {
       this.attractBlink += dt;
+      const segment = this.attractSegment();
+      if (segment !== this.attractSegmentIndex) this.enterAttractSegment(segment);
+      if (segment === 4) this.updateAttractDemo(dt);
       // Reason: clear hops so leftover swipes don't fire on first READY frame,
       // but still accept confirm (tap / START / Enter).
       this.input.consumeHop();
@@ -518,6 +524,9 @@ export class Game {
     this.state = "ATTRACT";
     this.stateTimer = 0;
     this.attractBlink = 0;
+    this.attractSegmentIndex = -1;
+    this.demoMoveIndex = 0;
+    this.demoMoveTimer = 0;
     this.hud = {
       score: 0,
       hiScore: this.hud.hiScore,
@@ -580,6 +589,10 @@ export class Game {
     // Original attract instructions replace the playfield with black pages;
     // keep the live scoreboard above them.
     if (this.state === "ATTRACT") {
+      if (this.attractSegment() === 4) {
+        this.drawAttractDemo();
+        return;
+      }
       ctx.fillStyle = PALETTE.black;
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
       drawScoreHUD(ctx, this.hud, this.sprites);
@@ -616,10 +629,93 @@ export class Game {
   }
 
   private drawAttractOverlay(): void {
-    const cycle = this.attractBlink % 18;
+    const cycle = this.attractBlink % 35;
     if (cycle < 4) this.drawAttractTitle();
     else if (cycle < 11) this.drawAttractInstructions();
-    else this.drawAttractScoring();
+    else if (cycle < 18) this.drawAttractScoring();
+    else this.drawAttractFrogs(cycle - 18);
+  }
+
+  private attractSegment(): number {
+    const cycle = this.attractBlink % 35;
+    if (cycle < 4) return 0;
+    if (cycle < 11) return 1;
+    if (cycle < 18) return 2;
+    if (cycle < 23) return 3;
+    return 4;
+  }
+
+  private enterAttractSegment(segment: number): void {
+    this.attractSegmentIndex = segment;
+    if (segment === 0 || segment === 4) {
+      this.frog.reset(FROG_START_COL, FROG_START_ROW);
+      this.hud.score = 0;
+      this.hud.timeRemaining = 1;
+      this.demoMoveIndex = 0;
+      this.demoMoveTimer = 0;
+    }
+  }
+
+  private updateAttractDemo(dt: number): void {
+    const moves: Array<"up" | "down" | "left" | "right"> = [
+      "up", "up", "left", "up", "right", "up", "up", "left",
+      "up", "right", "up", "up", "left", "right", "up", "up",
+    ];
+    this.demoMoveTimer -= dt;
+    if (!this.frog.isHopping() && this.demoMoveTimer <= 0) {
+      const direction = moves[this.demoMoveIndex % moves.length];
+      const before = this.frog.tilePosition();
+      this.frog.tryHop(direction);
+      const after = this.frog.tilePosition();
+      if (before.x !== after.x || before.y !== after.y) this.hud.score += SCORE_PER_STEP;
+      this.demoMoveIndex++;
+      this.demoMoveTimer = 0.48;
+    }
+    this.frog.update(dt);
+  }
+
+  private drawAttractFrogs(elapsed: number): void {
+    const starts = [
+      { x: 48, y: 110 },
+      { x: WIDTH - 48, y: 110 },
+      { x: 48, y: HEIGHT - 90 },
+      { x: WIDTH - 48, y: HEIGHT - 90 },
+      { x: WIDTH / 2, y: HEIGHT - 54 },
+    ];
+    const targets = [
+      { x: WIDTH / 2, y: 208 },
+      { x: WIDTH / 2 - 38, y: 246 },
+      { x: WIDTH / 2 + 38, y: 246 },
+      { x: WIDTH / 2 - 20, y: 284 },
+      { x: WIDTH / 2 + 20, y: 284 },
+    ];
+    starts.forEach((start, index) => {
+      const p = Math.max(0, Math.min(1, (elapsed - index * 0.22) / 2.7));
+      const eased = 1 - Math.pow(1 - p, 3);
+      const x = start.x + (targets[index].x - start.x) * eased;
+      const y = start.y + (targets[index].y - start.y) * eased;
+      const hopping = p > 0 && p < 1 && Math.floor(p * 10) % 2 === 0;
+      this.sprites.drawCentered(
+        this.ctx,
+        hopping ? "frog_hop" : "frog_idle",
+        x,
+        y,
+        TILE * 1.15
+      );
+    });
+    if (elapsed > 3.2) this.drawAttractCentered("FROGGER", 330, "yellow", 2);
+  }
+
+  private drawAttractDemo(): void {
+    drawWorldBackground(this.ctx);
+    for (const lane of this.allLanes) lane.draw(this.ctx);
+    this.homes.draw(this.ctx);
+    this.frog.draw(this.ctx);
+    drawHUD(this.ctx, this.hud, this.sprites);
+    const y = (ROW.MEDIAN + 0.5) * TILE;
+    this.ctx.fillStyle = "rgba(0,0,0,0.55)";
+    this.ctx.fillRect(WIDTH / 2 - 54, y - 13, 108, 26);
+    this.drawAttractCentered("DEMO", y - 9, "yellow", 1);
   }
 
   private drawAttractTitle(): void {
