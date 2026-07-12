@@ -1,61 +1,169 @@
-# Frogger
+# Frogger — an AI-assisted arcade reconstruction
 
-Browser clone of the 1981 arcade classic. Vite + TypeScript + Canvas 2D.
+[![Deploy GitHub Pages](https://github.com/blittersptyltd/grok-frogger/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/blittersptyltd/grok-frogger/actions/workflows/deploy-pages.yml)
 
-## Quick start
+A mobile-first browser reconstruction of the 1981 arcade game, built as an experiment in human-directed, AI-assisted product development.
 
-```bash
-npm install
-npm run dev      # http://localhost:5173/grok-frogger/
-npm run build    # typecheck + production bundle → dist/
-npm run preview  # serve dist/
+**[Play the live game](https://blittersptyltd.github.io/grok-frogger/)**
+
+![Frogger running on mobile with touch controls](docs/images/frogger-mobile-gameplay.jpg)
+
+## Why this project exists
+
+The goal was bigger than producing a playable clone. We wanted to test whether an AI coding agent could help take a product from a plain-language brief to a polished, deployable experience while a human supplied the taste, visual judgement and product direction.
+
+The result includes:
+
+- faithful tile-stepped Frogger gameplay
+- road, river, homes, scoring, lives and level progression
+- diving turtles, crocodiles, snakes, flies and lady-frog bonuses
+- a Canvas-rendered cabinet-style attract sequence
+- synthesised Web Audio music and sound effects
+- keyboard, swipe and on-screen D-pad controls
+- an installable mobile PWA
+- responsive portrait and landscape layouts
+- persisted high scores and fullscreen/install guidance
+- automated regression tests and GitHub Pages deployment
+
+This was not a one-prompt exercise. It was an iterative product build involving reference analysis, implementation, browser testing, mobile feedback, rejected shortcuts and repeated visual tuning.
+
+## The AI experiment
+
+The human role focused on:
+
+- defining the product and fidelity target
+- comparing builds against arcade references
+- identifying visual and interaction problems
+- deciding which compromises were acceptable
+- steering mobile usability and the final feel
+
+The AI-agent role focused on:
+
+- architecture and implementation
+- sprite and Canvas rendering workflows
+- collision, timing and responsive geometry
+- Web Audio synthesis and lifecycle debugging
+- PWA/browser integration
+- automated verification, documentation and deployment
+
+A useful lesson was that an agent can implement quickly, but speed is not the same as understanding intent. The attract-mode title initially went through several approximations—including an invalid captured-video shortcut—before being rebuilt correctly as a seven-frog Canvas animation. Human review was the quality system that caught the difference.
+
+Read the full [AI development retrospective](docs/AI-DEVELOPMENT-RETROSPECTIVE.md).
+
+## Technology
+
+- TypeScript
+- Canvas 2D
+- Web Audio API
+- Vite
+- Vitest
+- static PWA assets and service worker
+- GitHub Actions and GitHub Pages
+
+There are no production JavaScript dependencies or backend services.
+
+## Architecture
+
+The game uses a fixed 60 Hz simulation loop rendered through Canvas:
+
+```text
+Input ──► Game state machine ──► Frog / lanes / homes / bonuses
+                    │
+                    ├──► collision, scoring and level progression
+                    ├──► Canvas renderer and sprite atlas
+                    └──► Web Audio music and effects
 ```
 
-## Play online
+The logical mobile-first playfield is 448×544 pixels. Gameplay rows can be deeper than their 32 px content tiles, allowing extra mobile breathing room without stretching sprites or separating collision geometry from visuals.
 
-GitHub Pages (after deploy workflow succeeds):
-
-**https://blittersptyltd.github.io/grok-frogger/**
+See [Architecture](docs/ARCHITECTURE.md) for the module map and design decisions.
 
 ## Controls
 
 | Input | Action |
 |---|---|
-| Enter / Space / tap playfield / **START** | Start from attract; continue after game over |
-| Arrow keys / WASD | Hop (one hop per press) |
-| On-screen D-pad | Hop (phones / tablets / narrow windows) |
-| Swipe on playfield | Hop in swipe direction |
-| M / **MUTE** | Mute / unmute |
-| **FULL** | Toggle browser fullscreen (Android/desktop where supported) |
-| `` ` `` (backtick) | Toggle collision debug overlay |
+| Arrow keys / WASD | Hop one tile |
+| Swipe on the playfield | Hop in swipe direction |
+| On-screen D-pad | Mobile movement |
+| Enter / Space / START | Start or continue |
+| M / MUTE | Toggle audio |
+| FULL | Fullscreen or installation help |
+| Backtick (`) | Collision debug overlay |
 
-Touch chrome (D-pad + START/MUTE/FULL) appears automatically on coarse-pointer devices and viewports ≤820px. Portrait: pad under the game. Landscape phones: pad beside the game.
+## Mobile and PWA use
 
-On first load a boot chooser prioritises **Add to Home Screen** / install (requires a tap — browsers block auto-fullscreen). On iPhone / Telegram / other in-app browsers, fullscreen API cannot hide chrome — the UI shows **Add to Home Screen** steps instead. Install the PWA/home-screen icon for true fullscreen. The chooser is skipped when already running standalone.
+Touch controls appear automatically on coarse-pointer devices and narrow viewports.
 
-## Project layout
+For true fullscreen on iPhone:
 
+1. Open the game in Safari.
+2. Choose **Share → Add to Home Screen**.
+3. Launch Frogger from its home-screen icon.
+
+In-app browsers cannot always hide their own chrome. The game detects those constraints and provides installation guidance rather than pretending fullscreen succeeded.
+
+## Local development
+
+Requires a current Node.js release.
+
+```bash
+npm install
+npm run dev
 ```
+
+Open the URL printed by Vite. The project is served beneath `/grok-frogger/` to match GitHub Pages.
+
+### Quality gate
+
+```bash
+npm run test   # Vitest regression suite
+npm run build  # TypeScript + production bundle
+npm run check  # tests + build + dependency audit
+```
+
+### Project structure
+
+```text
 src/
-  main.ts              # boot + fullscreen gate
-  fullscreen.ts        # Fullscreen API helpers
-  types.ts             # dimensions, palette, GameState
+  main.ts                 boot and browser integration
+  fullscreen.ts           fullscreen/install helpers
+  install.ts              PWA registration and install flow
+  types.ts                shared dimensions, palette and state types
   game/
-    Game.ts            # loop, state machine, scoring, collisions
-    Frog.ts / Lane.ts / Obstacle.ts / Homes.ts / World.ts / HUD.ts
-    Input.ts / Audio.ts / Sprites.ts / Constants.ts
-public/sprites/cut/    # runtime sprites (one PNG per sprite)
-scripts/               # one-off sprite extraction helpers
+    Game.ts               fixed-step loop and game-state orchestration
+    Attract.ts            pure attract-cycle timing and demo route
+    Frog.ts               movement, animation and death states
+    Lane.ts               obstacle lane lifecycle
+    Obstacle.ts           vehicles, platforms and hazards
+    Homes.ts              home seating and occupants
+    Bonuses.ts            fly/lady-frog behaviour
+    World.ts              row geometry and background rendering
+    HUD.ts                arcade-font and HUD rendering
+    Audio.ts              Web Audio synthesis and lifecycle
+    Levels.ts             progressive feature unlocks
+public/
+  sprites/cut/            runtime sprite assets
+  manifest.webmanifest    installable PWA metadata
+docs/
+  content/                publication-ready website material
+  plans/                  original design records
 ```
 
-## Specs & tasks
+## Development story and tutorials
 
-- Design: `docs/plans/2026-04-30-frogger-design.md`
-- PRD / status: `prd.md`
-- Next work: `tasks.md`
-- Agent context: `AGENTS.md`, `.cursor/rules/`
+- [Architecture](docs/ARCHITECTURE.md)
+- [AI development retrospective](docs/AI-DEVELOPMENT-RETROSPECTIVE.md)
+- [Recreating the cabinet attract sequence](docs/ATTRACT-MODE-RECREATION.md)
+- [Mobile and PWA design notes](docs/MOBILE-PWA.md)
+- [Website tutorial: build a Canvas arcade game with an AI coding agent](docs/content/tutorial-build-canvas-arcade-game-with-ai.md)
+- [Publishing and social kit](docs/content/publishing-kit.md)
 
-## Notes
+## Project status
 
-- Audio is synthesised via Web Audio (no `public/audio/`). Themes approximate the arcade intro (Inu no omawari-san) and main loop (Araiguma Rascal). First keypress unlocks audio (browser policy).
-- Intermediate sprite dumps under `public/sprites/` are gitignored; the game loads only `public/sprites/cut/*.png`.
+The project is considered **complete** as an AI-assisted product experiment. Future changes should be treated as optional enhancements rather than unfinished core work.
+
+## Intellectual-property notice
+
+This is an educational, non-commercial fan reconstruction and is not affiliated with or endorsed by Konami. *Frogger*, its characters, visual identity and original arcade material belong to their respective rights holders.
+
+The repository is published to document an AI-assisted development experiment. Do not assume that included game graphics, names or other derivative assets are available for unrestricted reuse. See [NOTICE.md](NOTICE.md).

@@ -9,6 +9,7 @@ import { isPotentiallyRideable } from "./Obstacle";
 import { Homes } from "./Homes";
 import { Bonuses } from "./Bonuses";
 import { Audio } from "./Audio";
+import { ATTRACT_CYCLE_SECONDS, ATTRACT_DEMO_MOVES, attractSegmentAt } from "./Attract";
 import { featuresForLevel, SCORE_FLY_BONUS, SCORE_LADY_BONUS, LevelFeatures } from "./Levels";
 import {
   DEATH_DURATION,
@@ -638,7 +639,7 @@ export class Game {
   }
 
   private drawAttractOverlay(): void {
-    const cycle = this.attractBlink % 93;
+    const cycle = this.attractBlink % ATTRACT_CYCLE_SECONDS;
     if (cycle < 39) this.drawAttractFrogs(cycle);
     else if (cycle < 48) this.drawAttractPointTable(cycle - 39);
     else if (cycle < 55) this.drawAttractRanking();
@@ -647,13 +648,7 @@ export class Game {
   }
 
   private attractSegment(): number {
-    const cycle = this.attractBlink % 93;
-    if (cycle < 39) return 0;
-    if (cycle < 48) return 1;
-    if (cycle < 55) return 2;
-    if (cycle < 63) return 3;
-    if (cycle < 68) return 4;
-    return 5;
+    return attractSegmentAt(this.attractBlink);
   }
 
   private enterAttractSegment(segment: number): void {
@@ -670,11 +665,6 @@ export class Game {
   }
 
   private updateAttractDemo(dt: number): void {
-    const moves: Array<"up" | "down" | "left" | "right"> = [
-      "up", "up", "left", "up", "right", "up", "up", "left",
-      "up", "right", "up", "up", "left", "right", "up", "up",
-    ];
-
     if (this.frog.row === ROW.HOMES && !this.frog.isHopping()) {
       this.demoHomePause += dt;
       if (this.demoHomePause >= 0.9) {
@@ -690,7 +680,7 @@ export class Game {
 
     this.demoMoveTimer -= dt;
     if (!this.frog.isHopping() && this.demoMoveTimer <= 0) {
-      const direction = moves[this.demoMoveIndex % moves.length];
+      const direction = ATTRACT_DEMO_MOVES[this.demoMoveIndex % ATTRACT_DEMO_MOVES.length];
       const before = this.frog.tilePosition();
       this.frog.tryHop(direction);
       const after = this.frog.tilePosition();

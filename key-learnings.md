@@ -57,3 +57,19 @@ Browsers block `requestFullscreen` without a user gesture — cannot auto-enter 
 
 **Mobile reality:** iPhone Safari and in-app browsers (Telegram, Instagram, etc.) cannot hide browser chrome for a canvas game. True fullscreen = open in Safari → Share → Add to Home Screen → launch the icon (`display: standalone` via `manifest.webmanifest`). Detect in-app/iOS and show install steps instead of a no-op Fullscreen API call.
 
+## Attract reconstruction and reference shortcuts (2026-07-12)
+
+A captured-video version can look exact while failing the requirement to recreate an animation. The cabinet title uses seven frogs, one common baseline, four grouped rise steps and a left-to-right `FROGGER` transformation. Remove reference footage from production and trace choreography into Canvas timing/data instead.
+
+## Sprite-atlas edge bleed (2026-07-12)
+
+Thin fragments before glyphs (`|CREDIT`, `|1 JUMP`) came from fractional destination scales/positions, not dirty source cells. Snap sprite-font scale, coordinates and cell dimensions to integers. `imageSmoothingEnabled = false` does not prevent adjacent-cell sampling at fractional geometry.
+
+## Web Audio lifecycle ownership (2026-07-12)
+
+Multiple asynchronous `startMusic()` paths can race before `musicEnabled` is set. Assign one state (`PLAYING`) as soundtrack owner, guard pending starts, invalidate stale promises and track/stop already-scheduled oscillators. Suspend the AudioContext on `visibilitychange`, `pagehide` and page freeze so music cannot leak after backgrounding.
+
+## Mobile row depth (2026-07-12)
+
+Do not vertically stretch the full Canvas to create breathing room. Keep 32px sprites and hitboxes unchanged; use `rowY()`, `rowHeight()` and `rowContentY()` to centre content inside taller logical rows. Rendering and collision must consume the same geometry.
+

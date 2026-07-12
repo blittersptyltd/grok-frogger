@@ -1,37 +1,53 @@
 # Agent guide — Frogger
 
+## Project status
+
+The project is complete and deployed. Treat future requests as maintenance or optional enhancement. Preserve the shipped experience unless the user explicitly approves a redesign.
+
 ## Read first
 
-1. `prd.md` — current status and success criteria
-2. `docs/plans/2026-04-30-frogger-design.md` — gameplay/layout/scoring
-3. `tasks.md` — ordered next work
-4. `key-learnings.md` — past pitfalls
+1. `README.md` — public project overview
+2. `prd.md` — completed product brief
+3. `docs/ARCHITECTURE.md` — current architecture
+4. `key-learnings.md` — implementation pitfalls
+5. `docs/plans/` — historical plans, not current truth
 
 ## Commands
 
-- Dev: `npm run dev`
-- Typecheck + build: `npm run build`
-- No test runner yet — verify by playing in the browser
+```bash
+npm run dev
+npm run test
+npm run build
+npm run check  # tests + build + dependency audit
+```
 
 ## Architecture
 
-- Fixed-timestep loop in `Game.ts` (`STEP = 1/60`)
-- States: `ATTRACT | READY | PLAYING | DYING | LEVEL_COMPLETE | GAME_OVER` (ATTRACT/READY typed but not wired)
-- Logical canvas: 448×480 (14×15 tiles of 32px). Scale via CSS integer nearest-neighbor
-- Constants for scoring/timing live in `src/game/Constants.ts`; dimensions/palette in `src/types.ts`
-- Sprites: individual PNGs in `public/sprites/cut/`, loaded by `Sprites.ts`
+- fixed 60 Hz simulation loop in `Game.ts`
+- states: `ATTRACT | READY | PLAYING | DYING | LEVEL_COMPLETE | GAME_OVER`
+- logical Canvas: 448×544
+- 32 px content tiles centred within mobile-deepened rows
+- row geometry: `World.ts`
+- pure attract timing/demo route: `Attract.ts`
+- synthesised and lifecycle-managed Web Audio: `Audio.ts`
+- runtime sprites: `public/sprites/cut/*.png`
 
 ## Conventions
 
-- Plain TypeScript classes/modules — no React/framework
-- Prefer small focused files under `src/game/`
-- Use `# Reason:` comments for non-obvious game-feel choices
-- Do not add runtime dependencies without a clear need
-- Do not commit secrets or regenerate/commit `frogger-clean/` dumps
-- Never edit Backup/Archive folders (none present)
+- no production runtime dependencies without a compelling reason
+- keep Canvas simulation in logical coordinates
+- source vertical positions from `rowY()` / `rowContentY()`
+- update visual and collision geometry together
+- keep attract and ready states silent
+- preserve integer glyph-atlas source/destination geometry
+- use `# Reason:` comments only for non-obvious game-feel/browser decisions
+- visually verify sprite cuts and rotations
+- run `npm run check` and a browser smoke test before deployment
 
 ## Boundaries
 
-- Keep collision/scoring logic in `Game.ts` (or extract deliberately)
-- Audio stays synthesised unless product explicitly switches to files
-- Match arcade feel: tile hops, no key-repeat, AABB road hits, center-x river ride test
+- do not replace recreated animation with captured footage
+- do not commit intermediate sprite-sheet dumps
+- do not assume Frogger-derived assets are openly licensed; see `NOTICE.md`
+- keep historical plans as records, but update current docs when behaviour changes
+- avoid broad rewrites of working gameplay during maintenance

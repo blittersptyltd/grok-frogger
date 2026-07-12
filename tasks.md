@@ -1,44 +1,37 @@
-# Tasks — Frogger
+# Project closeout — Frogger
 
-Ordered for continued development. Check off as done.
+**Status:** Complete
 
-## Done (v1 core)
+## Delivered
 
-- [x] Vite + TS bootstrap, world background, HUD shells
-- [x] Grid-stepped frog + input
-- [x] Road lanes, cars, collision
-- [x] River lanes, logs/turtles, ride + drown
-- [x] Homes, scoring, timer, levels, game over
-- [x] Cut arcade sprites wired in
-- [x] Synthesised music + SFX + mute
-- [x] Persisted hi-score (localStorage)
-- [x] Level speed scaling (cap level 5)
-- [x] Fix KeyD debug vs move-right conflict (debug → backtick)
+- [x] Vite/TypeScript/Canvas architecture
+- [x] Fixed-step game loop and state machine
+- [x] Tile movement, road collision and river riding
+- [x] Homes, scores, timer, lives and level progression
+- [x] Arcade sprite and procedural-background rendering
+- [x] Diving turtles, fly, crocodiles, snakes and lady frog
+- [x] Synthesised music and sound effects
+- [x] Silent cabinet-style attract sequence and demo
+- [x] Arcade sprite-font rendering
+- [x] Keyboard, D-pad and swipe controls
+- [x] Responsive mobile playfield and deeper row geometry
+- [x] Fullscreen/install guidance and PWA support
+- [x] Background-safe Web Audio lifecycle
+- [x] Persisted high score and mute controls
+- [x] Vitest regression suite
+- [x] Clean production build and dependency audit
+- [x] GitHub Actions/Pages deployment
+- [x] Architecture and AI-development retrospective
+- [x] Publication-ready website showcase, tutorial and social kit
 
-## Next (polish — design slice 8)
+## Optional future enhancements
 
-1. [x] **ATTRACT screen** — title / “PRESS ENTER”; start in `ATTRACT` not `PLAYING`
-2. [x] **READY interstitial** — brief “READY!” after start, death respawn, home seat, and level advance
-3. [ ] **Load pixel font** — Press Start 2P (or similar) via `@font-face` / Google Fonts; HUD currently falls back to monospace
-4. [x] **Home filled sprite polish** — front-facing `frog_in_home` from sheet `(45,197)`; arcade hedge/median textures; life icons use `frog_idle`
-5. [ ] **Mute indicator** — small HUD cue when muted
-6. [ ] **Tests** — unit tests for scoring, home seating, lane spawn rhythm (Vitest)
+These are not required for project completion:
 
-## Later / out of scope for v1
+- additional browser/device test automation
+- original replacement artwork and branding for unrestricted reuse
+- expanded attract-demo routes
+- richer accessibility options
+- additional levels or alternate modes
 
-- [x] Diving turtles (`turtle_dive` / `turtle_submerged`) — unlock L2+
-- [x] Fly bonus in homes — unlock L2+
-- [x] Crocodiles on river — unlock L3+
-- [x] Snakes on median — unlock L3+
-- [x] Lady frog on logs — unlock L4+
-- [x] Touch / mobile controls — hybrid D-pad + swipe + tap/START
-- Replace synth audio with authentic arcade samples
-
-## Level unlocks
-
-| Level | Features |
-|---|---|
-| 1 | Core gameplay + speed |
-| 2 | ~22% diving turtles, fly bonus, lady frog |
-| 3 | Full-body river crocs, croc head in homes, snakes |
-| 5+ | Higher croc chance, faster everything |
+Run `npm run check` before accepting future changes.
