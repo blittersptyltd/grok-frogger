@@ -57,11 +57,7 @@ const ROW_KINDS: Record<number, RowKind> = {
   [ROW.HUD_BOTTOM]: "hud",
 };
 
-export function rowKind(row: number): RowKind {
-  return ROW_KINDS[row] ?? "hud";
-}
-
-// Home alcove geometry (px), exposed so collision code can use it later.
+// Shared home-alcove geometry for rendering and collision.
 export const HOME_ALCOVE = {
   count: 5,
   // Total playfield width = COLS * TILE = 448px.

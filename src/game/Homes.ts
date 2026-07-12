@@ -43,9 +43,6 @@ export class Homes {
     }
   }
 
-  filledCount(): number {
-    return this.filled.filter(Boolean).length;
-  }
 
   allFilled(): boolean {
     return this.filled.every(Boolean);

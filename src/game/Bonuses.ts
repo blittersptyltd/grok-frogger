@@ -39,9 +39,6 @@ export class Bonuses {
     }
   }
 
-  isCarryingLady(): boolean {
-    return this.carrying;
-  }
 
   /**
    * Deliver lady at home: clears carry state and returns true if she was carried

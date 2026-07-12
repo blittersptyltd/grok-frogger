@@ -5,7 +5,7 @@ import { Input } from "./Input";
 import { Frog, FROG_START_COL, FROG_START_ROW, DeathKind } from "./Frog";
 import { SpriteSheet } from "./Sprites";
 import { Lane, LaneConfig } from "./Lane";
-import { isPotentiallyRideable } from "./Obstacle";
+import { isPotentiallyRideable, isTurtle } from "./Obstacle";
 import { Homes } from "./Homes";
 import { Bonuses } from "./Bonuses";
 import { Audio } from "./Audio";
@@ -143,7 +143,7 @@ export class Game {
     window.addEventListener("touchstart", unlockAudio, { capture: true, passive: true });
 
     this.spawnLanesForLevel();
-    // Attract mode: hide the frog until the player starts.
+    // Seed the shared frog state; non-demo attract pages intentionally do not draw it.
     this.frog.reset(FROG_START_COL, FROG_START_ROW);
     this.syncActionLabel();
     this.syncMuteLabel();
@@ -496,12 +496,12 @@ export class Game {
       (cfg) => new Lane({ ...cfg, speed: cfg.speed * mult }, this.sprites)
     );
     this.riverLanes = RIVER_LANES.map((cfg) => {
-      const isTurtle = cfg.kind === "turtle_pair" || cfg.kind === "turtle_trio";
+      const turtleLane = isTurtle(cfg.kind);
       return new Lane(
         {
           ...cfg,
           speed: cfg.speed * mult,
-          diveChance: isTurtle && this.features.divingTurtles ? this.features.diveChance : 0,
+          diveChance: turtleLane && this.features.divingTurtles ? this.features.diveChance : 0,
           crocChance: cfg.kind === "log_long" ? this.features.crocChance : 0,
         },
         this.sprites

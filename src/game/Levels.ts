@@ -12,7 +12,7 @@ export interface LevelFeatures {
   snakes: boolean;
   /** Bonus fly appears in a random empty home. */
   flyBonus: boolean;
-  /** Lady frog rides a random log; hop on for points. */
+  /** Lady frog rides a random log; carry her safely home for points. */
   ladyFrog: boolean;
   /** Chance (0..1) a long-log spawn is replaced by a croc. */
   crocChance: number;

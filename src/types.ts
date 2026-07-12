@@ -1,8 +1,8 @@
 export const TILE = 32;
 export const COLS = 14;
 export const PLAYFIELD_ROWS = 13;
-// Original Frogger uses a two-line top scoreboard; the extra row also restores
-// the arcade 14×16 playfield aspect ratio for portrait/mobile screens.
+// Original Frogger uses a two-line top scoreboard. Additional logical depth is
+// applied below for mobile readability without stretching 32px content sprites.
 export const HUD_TOP_ROWS = 2;
 export const HUD_BOTTOM_ROWS = 1;
 // Extra logical depth for the home band. Rows below it shift by the same amount,

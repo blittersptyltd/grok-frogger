@@ -1,5 +1,5 @@
 import { TILE, COLS } from "../types";
-import { Obstacle, ObstacleKind, isLog } from "./Obstacle";
+import { isLog, isTurtle, Obstacle, ObstacleKind } from "./Obstacle";
 import { SpriteSheet } from "./Sprites";
 
 export interface LaneConfig {
@@ -82,9 +82,8 @@ export class Lane {
       kind = "croc";
     }
     // Reason: only a fraction of turtle groups dive — keeps river readable.
-    const isTurtle = kind === "turtle_pair" || kind === "turtle_trio";
     const dive =
-      isTurtle && (this.cfg.diveChance ?? 0) > 0 && Math.random() < (this.cfg.diveChance ?? 0);
+      isTurtle(kind) && (this.cfg.diveChance ?? 0) > 0 && Math.random() < (this.cfg.diveChance ?? 0);
     return new Obstacle(x, this.cfg.row, this.cfg.direction, this.cfg.speed, kind, this.sprites, {
       dive,
       diveOffset: Math.random() * 5,
