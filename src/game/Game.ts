@@ -1,5 +1,5 @@
 import { WIDTH, HEIGHT, TILE, COLS, GameState, PALETTE } from "../types";
-import { drawWorldBackground, ROW, rowY } from "./World";
+import { drawWorldBackground, ROW, rowHeight, rowY } from "./World";
 import { arcadeTextWidth, drawArcadeText, drawHUD, drawScoreHUD, HUDState } from "./HUD";
 import { Input } from "./Input";
 import { Frog, FROG_START_COL, FROG_START_ROW, DeathKind } from "./Frog";
@@ -872,7 +872,7 @@ export class Game {
 
   private drawCenteredBanner(text: string): void {
     const { ctx } = this;
-    const y = rowY(ROW.ROAD_3) + TILE / 2;
+    const y = rowY(ROW.ROAD_3) + rowHeight(ROW.ROAD_3) / 2;
     ctx.fillStyle = "rgba(0,0,0,0.65)";
     ctx.fillRect(0, y - 14, WIDTH, 32);
     ctx.fillStyle = PALETTE.hudYellow;

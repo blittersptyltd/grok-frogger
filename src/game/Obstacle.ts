@@ -1,6 +1,6 @@
 import { TILE, COLS } from "../types";
 import { SpriteSheet, SpriteName } from "./Sprites";
-import { rowY } from "./World";
+import { rowContentY } from "./World";
 
 export type ObstacleKind =
   | "car_yellow"
@@ -122,7 +122,7 @@ export class Obstacle {
   }
 
   bounds(): { x: number; y: number; w: number; h: number } {
-    return { x: this.x, y: rowY(this.row), w: this.width, h: TILE };
+    return { x: this.x, y: rowContentY(this.row), w: this.width, h: TILE };
   }
 
   divePhase(): DivePhase {

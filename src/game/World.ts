@@ -1,4 +1,6 @@
-import { TILE, COLS, HEIGHT, HOME_DEPTH_EXTRA, PALETTE } from "../types";
+import {
+  TILE, COLS, HEIGHT, HOME_DEPTH_EXTRA, PLAY_ROW_GAP, PALETTE,
+} from "../types";
 
 // Playfield row indices. Rows 0–1 = two-line top HUD; homes start at row 2.
 export const ROW = {
@@ -20,11 +22,19 @@ export const ROW = {
 } as const;
 
 export function rowY(row: number): number {
-  return row * TILE + (row > ROW.HOMES ? HOME_DEPTH_EXTRA : 0);
+  if (row <= ROW.HOMES) return row * TILE;
+  return row * TILE + HOME_DEPTH_EXTRA + (row - ROW.RIVER_1) * PLAY_ROW_GAP;
 }
 
 export function rowHeight(row: number): number {
-  return row === ROW.HOMES ? TILE + HOME_DEPTH_EXTRA : TILE;
+  if (row === ROW.HOMES) return TILE + HOME_DEPTH_EXTRA;
+  if (row >= ROW.RIVER_1 && row <= ROW.START) return TILE + PLAY_ROW_GAP;
+  return TILE;
+}
+
+// Top-left Y for a 32px sprite/collision tile centred within a taller row.
+export function rowContentY(row: number): number {
+  return rowY(row) + (rowHeight(row) - TILE) / 2;
 }
 
 type RowKind = "hud" | "homes" | "river" | "median" | "road" | "start";
@@ -83,11 +93,11 @@ export function drawWorldBackground(ctx: CanvasRenderingContext2D): void {
         break;
       case "river":
         ctx.fillStyle = PALETTE.water;
-        ctx.fillRect(0, y, COLS * TILE, TILE);
+        ctx.fillRect(0, y, COLS * TILE, rowHeight(row));
         break;
       case "median":
       case "start":
-        drawMedianStrip(ctx, y);
+        drawMedianStrip(ctx, y, rowHeight(row));
         break;
       case "road":
         drawRoadRow(ctx, y, row);
@@ -153,14 +163,14 @@ function fillHedgeTexture(
 }
 
 // Median / start strip: magenta bank with arcade-style red/blue pebble texture.
-function drawMedianStrip(ctx: CanvasRenderingContext2D, y: number): void {
+function drawMedianStrip(ctx: CanvasRenderingContext2D, y: number, height: number): void {
   const w = COLS * TILE;
   ctx.fillStyle = PALETTE.median;
-  ctx.fillRect(0, y, w, TILE);
+  ctx.fillRect(0, y, w, height);
 
   // Dense 2×2 pebble grid with alternating red / deep-blue dots (arcade bank).
   const cell = 4;
-  for (let py = 1; py < TILE - 1; py += cell) {
+  for (let py = 1; py < height - 1; py += cell) {
     for (let px = 1; px < w - 1; px += cell) {
       const col = (px / cell) | 0;
       const row = (py / cell) | 0;
@@ -176,13 +186,14 @@ function drawMedianStrip(ctx: CanvasRenderingContext2D, y: number): void {
 // Road: black asphalt with subtle dashed lane dividers between adjacent road rows.
 function drawRoadRow(ctx: CanvasRenderingContext2D, y: number, row: number): void {
   const w = COLS * TILE;
+  const height = rowHeight(row);
   ctx.fillStyle = PALETTE.road;
-  ctx.fillRect(0, y, w, TILE);
+  ctx.fillRect(0, y, w, height);
 
   // Edge bands: darker gray top/bottom 1px so the road is visible against the page bg
   ctx.fillStyle = "#202020";
   ctx.fillRect(0, y, w, 1);
-  ctx.fillRect(0, y + TILE - 1, w, 1);
+  ctx.fillRect(0, y + height - 1, w, 1);
 
   const isFirstRoadFromTop = row === ROW.ROAD_1;
   if (!isFirstRoadFromTop) {

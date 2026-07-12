@@ -1,5 +1,5 @@
 import { TILE, COLS, Direction } from "../types";
-import { ROW, rowY } from "./World";
+import { ROW, rowContentY } from "./World";
 import { SpriteSheet } from "./Sprites";
 
 const HOP_DURATION = 0.10; // seconds per hop — snappy, arcade-faithful
@@ -73,7 +73,7 @@ export class Frog {
   // hitbox commits to the destination the moment a hop starts — matching the
   // arcade behaviour and avoiding visual-vs-logical drift during animation.
   tilePosition(): { x: number; y: number } {
-    return { x: this.col * TILE + this.driftX, y: rowY(this.row) };
+    return { x: this.col * TILE + this.driftX, y: rowContentY(this.row) };
   }
 
   tryHop(dir: Direction): void {
@@ -131,13 +131,13 @@ export class Frog {
   // and any drift carried while riding a platform.
   pixelPosition(): { x: number; y: number; t: number } {
     if (!this.hopFrom) {
-      return { x: this.col * TILE + this.driftX, y: rowY(this.row), t: 0 };
+      return { x: this.col * TILE + this.driftX, y: rowContentY(this.row), t: 0 };
     }
     const t = Math.min(1, this.hopT / HOP_DURATION);
     const fromX = this.hopFrom.col * TILE;
-    const fromY = rowY(this.hopFrom.row);
+    const fromY = rowContentY(this.hopFrom.row);
     const toX = this.col * TILE;
-    const toY = rowY(this.row);
+    const toY = rowContentY(this.row);
     const horizontalHop = this.hopFrom.row === this.row;
     return {
       x: fromX + (toX - fromX) * t,

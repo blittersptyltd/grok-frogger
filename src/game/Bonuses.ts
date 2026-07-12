@@ -2,7 +2,7 @@ import { TILE } from "../types";
 import { Obstacle, isLog } from "./Obstacle";
 import { Lane } from "./Lane";
 import { SpriteSheet } from "./Sprites";
-import { ROW, rowY } from "./World";
+import { ROW, rowContentY } from "./World";
 import type { Direction } from "../types";
 
 /**
@@ -130,7 +130,7 @@ export class Bonuses {
     if (this.carrying || !this.ladyOnLog) return false;
     const host = this.ladyOnLog.host;
     const lx = host.x + host.width / 2 - TILE / 2;
-    const ly = rowY(host.row);
+    const ly = rowContentY(host.row);
     const overlap =
       frogHitbox.x < lx + TILE &&
       frogHitbox.x + frogHitbox.w > lx &&
@@ -178,7 +178,7 @@ export class Bonuses {
     if (this.ladyOnLog) {
       const host = this.ladyOnLog.host;
       const cx = host.x + host.width / 2;
-      const cy = rowY(host.row) + TILE / 2;
+      const cy = rowContentY(host.row) + TILE / 2;
       this.sprites.drawCentered(ctx, "lady_frog", cx, cy, TILE * 0.85);
     }
   }
