@@ -126,10 +126,24 @@ export class Audio {
       music.connect(master);
       this.musicGain = music;
 
-      // Reason: iOS suspends the context when the tab backgrounds; resume on return.
+      // Mobile browsers may keep Web Audio alive after the tab/PWA is hidden.
+      // Suspend at the context level so no scheduled note can leak into the
+      // background; resume only when the page is genuinely visible again.
+      const suspendForBackground = (): void => {
+        if (this.ctx?.state === "running") void this.ctx.suspend();
+      };
       document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+          suspendForBackground();
+        } else {
+          void this.ensureStarted();
+        }
+      });
+      window.addEventListener("pagehide", suspendForBackground);
+      window.addEventListener("pageshow", () => {
         if (document.visibilityState === "visible") void this.ensureStarted();
       });
+      document.addEventListener("freeze", suspendForBackground);
     }
 
     return this.resumeContext().then(() => {
