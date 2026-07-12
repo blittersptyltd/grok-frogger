@@ -1,5 +1,5 @@
 import { TILE } from "../types";
-import { ROW, HOME_ALCOVE, homeAlcoveX } from "./World";
+import { ROW, HOME_ALCOVE, homeAlcoveX, rowY } from "./World";
 import { SpriteSheet } from "./Sprites";
 
 const ALCOVE_HIT_PADDING = 4;
@@ -113,7 +113,7 @@ export class Homes {
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
-    const y = ROW.HOMES * TILE;
+    const y = rowY(ROW.HOMES);
     for (let i = 0; i < HOME_ALCOVE.count; i++) {
       const ax = homeAlcoveX(i);
       const cx = ax + HOME_ALCOVE.width / 2;

@@ -1,4 +1,4 @@
-import { TILE, COLS, PALETTE } from "../types";
+import { TILE, COLS, HEIGHT, HOME_DEPTH_EXTRA, PALETTE } from "../types";
 
 // Playfield row indices. Rows 0–1 = two-line top HUD; homes start at row 2.
 export const ROW = {
@@ -18,6 +18,14 @@ export const ROW = {
   START: 14,
   HUD_BOTTOM: 15,
 } as const;
+
+export function rowY(row: number): number {
+  return row * TILE + (row > ROW.HOMES ? HOME_DEPTH_EXTRA : 0);
+}
+
+export function rowHeight(row: number): number {
+  return row === ROW.HOMES ? TILE + HOME_DEPTH_EXTRA : TILE;
+}
 
 type RowKind = "hud" | "homes" | "river" | "median" | "road" | "start";
 
@@ -52,7 +60,7 @@ export const HOME_ALCOVE = {
   // Alcove starts a bit below the top of the row (a 6px hedge wall caps the top).
   topInset: 6,
   // Alcove extends down into the river row a touch — looks more like the arcade.
-  height: TILE - 6,
+  height: TILE + HOME_DEPTH_EXTRA - 6,
 } as const;
 
 export function homeAlcoveX(index: number): number {
@@ -64,11 +72,11 @@ export function homeAlcoveX(index: number): number {
 
 export function drawWorldBackground(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = PALETTE.black;
-  ctx.fillRect(0, 0, COLS * TILE, (Object.keys(ROW_KINDS).length) * TILE);
+  ctx.fillRect(0, 0, COLS * TILE, HEIGHT);
 
   for (const [rowStr, kind] of Object.entries(ROW_KINDS)) {
     const row = Number(rowStr);
-    const y = row * TILE;
+    const y = rowY(row);
     switch (kind) {
       case "homes":
         drawHomeRow(ctx, y);
@@ -96,12 +104,12 @@ export function drawWorldBackground(ctx: CanvasRenderingContext2D): void {
 function drawHomeRow(ctx: CanvasRenderingContext2D, y: number): void {
   const w = COLS * TILE;
 
-  // Water shows through the alcoves
+  // Water shows through the deeper mobile-friendly alcoves.
   ctx.fillStyle = PALETTE.water;
-  ctx.fillRect(0, y, w, TILE);
+  ctx.fillRect(0, y, w, TILE + HOME_DEPTH_EXTRA);
 
   // Full-row hedge body, then punch alcoves back to water
-  fillHedgeTexture(ctx, 0, y, w, TILE);
+  fillHedgeTexture(ctx, 0, y, w, TILE + HOME_DEPTH_EXTRA);
 
   for (let i = 0; i < HOME_ALCOVE.count; i++) {
     const ax = homeAlcoveX(i);

@@ -5,10 +5,13 @@ export const PLAYFIELD_ROWS = 13;
 // the arcade 14×16 playfield aspect ratio for portrait/mobile screens.
 export const HUD_TOP_ROWS = 2;
 export const HUD_BOTTOM_ROWS = 1;
+// Extra logical depth for the home band. Rows below it shift by the same amount,
+// preserving sprite proportions while giving the mobile playfield more air.
+export const HOME_DEPTH_EXTRA = 8;
 export const TOTAL_ROWS = HUD_TOP_ROWS + PLAYFIELD_ROWS + HUD_BOTTOM_ROWS;
 
 export const WIDTH = COLS * TILE;
-export const HEIGHT = TOTAL_ROWS * TILE;
+export const HEIGHT = TOTAL_ROWS * TILE + HOME_DEPTH_EXTRA;
 
 export type GameState =
   | "ATTRACT"

@@ -1,5 +1,5 @@
 import { TILE, COLS, PALETTE, TOTAL_ROWS } from "../types";
-import { ROW } from "./World";
+import { ROW, rowY } from "./World";
 import { SpriteSheet } from "./Sprites";
 
 export interface HUDState {
@@ -45,7 +45,7 @@ function drawTopHUD(
   state: HUDState,
   sprites?: SpriteSheet
 ): void {
-  const y = ROW.HUD_TOP * TILE;
+  const y = rowY(ROW.HUD_TOP);
   ctx.fillStyle = PALETTE.black;
   ctx.fillRect(0, y, COLS * TILE, TILE * 2);
 
@@ -61,7 +61,7 @@ function drawBottomHUD(
   state: HUDState,
   sprites?: SpriteSheet
 ): void {
-  const y = ROW.HUD_BOTTOM * TILE;
+  const y = rowY(ROW.HUD_BOTTOM);
   ctx.fillStyle = PALETTE.black;
   ctx.fillRect(0, y, COLS * TILE, TILE);
 
