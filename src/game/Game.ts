@@ -55,7 +55,6 @@ export class Game {
   private demoMoveIndex = 0;
   private demoMoveTimer = 0;
   private demoHomePause = 0;
-  private attractVideo: HTMLVideoElement;
 
   private input = new Input();
   private sprites = new SpriteSheet();
@@ -92,12 +91,6 @@ export class Game {
 
   constructor(canvas: HTMLCanvasElement, touch?: TouchUiElements) {
     this.canvas = canvas;
-    this.attractVideo = document.createElement("video");
-    this.attractVideo.src = `${import.meta.env.BASE_URL}video/frogger-original-title.mp4`;
-    this.attractVideo.muted = true;
-    this.attractVideo.playsInline = true;
-    this.attractVideo.preload = "auto";
-    this.attractVideo.setAttribute("playsinline", "");
     canvas.width = WIDTH;
     canvas.height = HEIGHT;
     const ctx = canvas.getContext("2d");
@@ -557,7 +550,6 @@ export class Game {
   }
 
   private startNewGame(): void {
-    this.attractVideo.pause();
     this.hud = { score: 0, hiScore: this.hud.hiScore, lives: 3, level: 1, timeRemaining: 1 };
     this.homes.reset();
     this.bonuses.reset();
@@ -600,17 +592,17 @@ export class Game {
     // keep the live scoreboard above them.
     if (this.state === "ATTRACT") {
       const segment = this.attractSegment();
-      if (segment === 0 && this.attractVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-        this.drawOriginalAttractVideo();
-        return;
-      }
       if (segment === 5) {
         this.drawAttractDemo();
         return;
       }
       ctx.fillStyle = PALETTE.black;
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
-      drawScoreHUD(ctx, this.hud, this.sprites);
+      drawScoreHUD(
+        ctx,
+        { ...this.hud, score: 1580, hiScore: 4630 },
+        this.sprites
+      );
       this.drawAttractOverlay();
       return;
     }
@@ -664,14 +656,6 @@ export class Game {
 
   private enterAttractSegment(segment: number): void {
     this.attractSegmentIndex = segment;
-    if (segment === 0) {
-      this.attractVideo.currentTime = 0;
-      void this.attractVideo.play().catch(() => {
-        // Muted autoplay is normally permitted; coded fallback renders if not.
-      });
-    } else {
-      this.attractVideo.pause();
-    }
     if (segment === 0 || segment === 5) {
       this.frog.reset(FROG_START_COL, FROG_START_ROW);
       this.homes.reset();
@@ -715,79 +699,85 @@ export class Game {
     this.frog.update(dt);
   }
 
-  private drawOriginalAttractVideo(): void {
-    const sourceW = this.attractVideo.videoWidth || 270;
-    const sourceH = this.attractVideo.videoHeight || 360;
-    const scale = Math.min(WIDTH / sourceW, HEIGHT / sourceH);
-    const drawW = sourceW * scale;
-    const drawH = sourceH * scale;
-    this.ctx.fillStyle = PALETTE.black;
-    this.ctx.fillRect(0, 0, WIDTH, HEIGHT);
-    this.ctx.drawImage(
-      this.attractVideo,
-      (WIDTH - drawW) / 2,
-      (HEIGHT - drawH) / 2,
-      drawW,
-      drawH
-    );
-  }
 
   private drawAttractFrogs(elapsed: number): void {
-    // Cabinet sequence: a frog marches across the lower blue field, leaving a
-    // row behind; the row climbs in staggered steps and resolves into FROGGER.
-    const count = Math.max(0, Math.min(14, Math.floor((elapsed - 6) / 1.15) + 1));
-    const rowY = 372;
-    const rowStartX = 42;
-    const spacing = 28;
+    // Traced from the 1981 cabinet sequence: one travelling frog repeatedly
+    // crosses from the right and joins a seven-frog row. The complete row then
+    // makes four synchronous upward hops, tightening to one frog per letter.
+    const fieldTop = TILE * 2;
+    const fieldBottom = HEIGHT - TILE * 2;
+    this.ctx.fillStyle = PALETTE.water;
+    this.ctx.fillRect(0, fieldTop, WIDTH, fieldBottom - fieldTop);
 
-    if (elapsed < 24) {
-      for (let index = 0; index < count; index++) {
-        const active = index === count - 1 && elapsed > 6;
+    const stations = [72, 122, 172, 222, 272, 322, 372];
+    const rowY = fieldBottom - 16;
+    const frogSize = 23;
+    const marchStart = 4.5;
+    const joinEvery = 3.65;
+
+    if (elapsed < 29.7) {
+      if (elapsed >= marchStart) {
+        const marchTime = elapsed - marchStart;
+        const stage = Math.min(6, Math.floor(marchTime / joinEvery));
+        const stageTime = marchTime - stage * joinEvery;
+        for (let index = 0; index < stage; index++) {
+          this.sprites.drawCentered(this.ctx, "frog_idle", stations[index], rowY, frogSize);
+        }
+
+        const p = Math.max(0, Math.min(1, stageTime / joinEvery));
+        // The cabinet runner arrives in short, discrete left-facing hops.
+        const hopCount = 5;
+        const stepped = Math.min(1, Math.floor(p * hopCount) / hopCount);
+        const hopPhase = (p * hopCount) % 1;
+        const x = WIDTH - 38 + (stations[stage] - (WIDTH - 38)) * stepped;
+        const y = rowY - Math.sin(Math.PI * Math.min(1, hopPhase)) * 7;
         this.sprites.drawCentered(
           this.ctx,
-          active && Math.floor(elapsed * 6) % 2 === 0 ? "frog_hop" : "frog_idle",
-          rowStartX + index * spacing,
-          rowY,
-          TILE * 0.9,
-          Math.PI / 2
+          hopPhase < 0.72 ? "frog_hop" : "frog_idle",
+          x,
+          y,
+          frogSize,
+          -Math.PI / 2
         );
       }
     } else {
-      const lift = Math.max(0, Math.min(1, (elapsed - 24) / 7));
-      const revealed = Math.max(0, Math.min(7, Math.floor((elapsed - 31) / 0.65)));
-      for (let index = revealed * 2; index < 14; index++) {
-        const letter = Math.floor(index / 2);
-        const tier = index % 2;
-        const stagger = Math.max(0, Math.min(1, lift * 1.35 - letter * 0.055));
-        const targetX = 74 + letter * 50 + tier * 15;
-        const targetY = 214 + tier * 34;
-        const x = rowStartX + index * spacing + (targetX - (rowStartX + index * spacing)) * stagger;
-        const y = rowY + (targetY - rowY) * stagger;
-        const hopping = stagger > 0 && stagger < 1 && Math.floor(stagger * 12) % 2 === 0;
-        this.sprites.drawCentered(
-          this.ctx,
-          hopping ? "frog_hop" : "frog_idle",
-          x,
-          y,
-          TILE * 0.9
-        );
-      }
       const title = "FROGGER";
       const titleX = (WIDTH - arcadeTextWidth(title, 3)) / 2;
-      for (let index = 0; index < revealed; index++) {
-        drawArcadeText(
+      const titleY = 202;
+      const riseStart = 29.7;
+      const riseDuration = 3.55;
+      const rise = Math.max(0, Math.min(1, (elapsed - riseStart) / riseDuration));
+      const steps = 4;
+      const stepPosition = rise * steps;
+      const completedSteps = Math.min(steps, Math.floor(stepPosition));
+      const stepPhase = completedSteps >= steps ? 0 : stepPosition - completedSteps;
+      const easedStep = stepPhase < 0.72 ? stepPhase / 0.72 : 1;
+      const verticalProgress = (completedSteps + easedStep) / steps;
+      const transformStart = 33.35;
+
+      for (let index = 0; index < 7; index++) {
+        const letterAt = transformStart + index * 0.53;
+        const letterX = titleX + index * 27;
+        if (elapsed >= letterAt) {
+          drawArcadeText(this.ctx, this.sprites, title[index], letterX, titleY, "green", 3);
+          continue;
+        }
+
+        const targetX = letterX + 13.5;
+        const x = stations[index] + (targetX - stations[index]) * verticalProgress;
+        const baseY = rowY + (titleY + 13.5 - rowY) * verticalProgress;
+        const arc = stepPhase < 0.72 ? Math.sin(Math.PI * easedStep) * 10 : 0;
+        this.sprites.drawCentered(
           this.ctx,
-          this.sprites,
-          title[index],
-          titleX + index * 27,
-          226,
-          "green",
-          3
+          stepPhase < 0.72 && completedSteps < steps ? "frog_hop" : "frog_idle",
+          x,
+          baseY - arc,
+          frogSize
         );
       }
     }
 
-    this.drawAttractCentered("CREDIT 00", HEIGHT - 28, "grey", 1);
+    this.drawAttractCentered("CREDIT 00", HEIGHT - 27, "cyan", 1);
   }
 
   private drawAttractDemo(): void {
@@ -871,7 +861,7 @@ export class Game {
   private drawAttractCentered(
     text: string,
     y: number,
-    colour: "grey" | "yellow" | "red" | "green",
+    colour: "grey" | "yellow" | "red" | "green" | "cyan",
     scale = 2
   ): void {
     const x = (WIDTH - arcadeTextWidth(text, scale)) / 2;

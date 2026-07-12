@@ -10,7 +10,7 @@ export interface HUDState {
   timeRemaining: number; // 0..1
 }
 
-export type ArcadeColour = "grey" | "yellow" | "red" | "green";
+export type ArcadeColour = "grey" | "yellow" | "red" | "green" | "cyan";
 
 const GLYPH_SIZE = 9;
 const GLYPH_SCALE = 2;
@@ -20,6 +20,7 @@ const COLOUR_BLOCK: Record<ArcadeColour, number> = {
   yellow: 27,
   red: 54,
   green: 81,
+  cyan: 108,
 };
 
 export function drawHUD(
@@ -112,7 +113,9 @@ export function drawArcadeText(
         ? PALETTE.hudYellow
         : colour === "green"
           ? PALETTE.frogGreen
-          : PALETTE.white;
+          : colour === "cyan"
+            ? "#14f0ff"
+            : PALETTE.white;
     ctx.font = `bold ${GLYPH_SIZE * scale}px monospace`;
     ctx.textBaseline = "top";
     ctx.textAlign = "left";
