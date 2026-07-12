@@ -25,7 +25,6 @@ const bootPrimary = document.getElementById("boot-primary") as HTMLButtonElement
 const bootSecondary = document.getElementById("boot-secondary") as HTMLButtonElement | null;
 const bootHelp = document.getElementById("boot-help");
 const bootHelpSteps = document.getElementById("boot-help-steps");
-const installBtn = document.getElementById("btn-install") as HTMLButtonElement | null;
 const fullscreenBtn = document.getElementById("btn-fullscreen") as HTMLButtonElement | null;
 
 document.body.classList.toggle("touch-ui", isTouchUiPreferred());
@@ -94,11 +93,6 @@ function renderBootCard(): void {
   }
   if (bootSecondary) bootSecondary.textContent = "PLAY IN BROWSER";
 
-  if (installBtn) {
-    installBtn.hidden = false;
-    installBtn.textContent = "ICON";
-    installBtn.setAttribute("aria-label", "Add to Home Screen help");
-  }
 
   if (fullscreenBtn) {
     fullscreenBtn.hidden = !browserFs;
@@ -126,9 +120,9 @@ async function handlePrimary(): Promise<void> {
   dismissBootGate();
 }
 
-function openBootCard(force = false): void {
+function openBootCard(): void {
   if (!bootGate) return;
-  if (!force && (isStandaloneDisplay() || hasSeenBoot())) {
+  if (isStandaloneDisplay() || hasSeenBoot()) {
     dismissBootGate();
     // Still mark so we don't leave gate half-open if standalone.
     if (bootGate) bootGate.hidden = true;
@@ -136,7 +130,6 @@ function openBootCard(force = false): void {
   }
   if (isStandaloneDisplay()) {
     bootGate.hidden = true;
-    if (installBtn) installBtn.hidden = true;
     return;
   }
   renderBootCard();
@@ -148,12 +141,11 @@ function setupBootGate(): void {
 
   if (isStandaloneDisplay()) {
     bootGate.hidden = true;
-    if (installBtn) installBtn.hidden = true;
     return;
   }
 
-  // First play (or forced via ICON): show install instructions expanded.
-  openBootCard(false);
+  // First browser play: show install instructions expanded.
+  openBootCard();
 
   bootSecondary?.addEventListener("click", () => {
     dismissBootGate();
@@ -170,13 +162,6 @@ window.addEventListener("frogger-install-available", () => {
 });
 window.addEventListener("frogger-installed", () => {
   dismissBootGate();
-  if (installBtn) installBtn.hidden = true;
-});
-
-// Re-open the first-play install card any time.
-installBtn?.addEventListener("pointerdown", (e) => {
-  e.preventDefault();
-  openBootCard(true);
 });
 
 fullscreenBtn?.addEventListener("pointerdown", (e) => {

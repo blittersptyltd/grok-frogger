@@ -26,7 +26,6 @@ GitHub Pages (after deploy workflow succeeds):
 | On-screen D-pad | Hop (phones / tablets / narrow windows) |
 | Swipe on playfield | Hop in swipe direction |
 | M / **MUTE** | Mute / unmute |
-| **ICON** | Add to Home Screen / install help |
 | **FULL** | Toggle browser fullscreen (Android/desktop where supported) |
 | `` ` `` (backtick) | Toggle collision debug overlay |
 
