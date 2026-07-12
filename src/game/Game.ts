@@ -54,6 +54,7 @@ export class Game {
   private attractSegmentIndex = -1;
   private demoMoveIndex = 0;
   private demoMoveTimer = 0;
+  private demoHomePause = 0;
 
   private input = new Input();
   private sprites = new SpriteSheet();
@@ -181,7 +182,7 @@ export class Game {
       this.attractBlink += dt;
       const segment = this.attractSegment();
       if (segment !== this.attractSegmentIndex) this.enterAttractSegment(segment);
-      if (segment === 4) this.updateAttractDemo(dt);
+      if (segment === 5) this.updateAttractDemo(dt);
       // Reason: clear hops so leftover swipes don't fire on first READY frame,
       // but still accept confirm (tap / START / Enter).
       this.input.consumeHop();
@@ -527,6 +528,7 @@ export class Game {
     this.attractSegmentIndex = -1;
     this.demoMoveIndex = 0;
     this.demoMoveTimer = 0;
+    this.demoHomePause = 0;
     this.hud = {
       score: 0,
       hiScore: this.hud.hiScore,
@@ -589,7 +591,7 @@ export class Game {
     // Original attract instructions replace the playfield with black pages;
     // keep the live scoreboard above them.
     if (this.state === "ATTRACT") {
-      if (this.attractSegment() === 4) {
+      if (this.attractSegment() === 5) {
         this.drawAttractDemo();
         return;
       }
@@ -629,30 +631,34 @@ export class Game {
   }
 
   private drawAttractOverlay(): void {
-    const cycle = this.attractBlink % 35;
-    if (cycle < 4) this.drawAttractTitle();
-    else if (cycle < 11) this.drawAttractInstructions();
-    else if (cycle < 18) this.drawAttractScoring();
-    else this.drawAttractFrogs(cycle - 18);
+    const cycle = this.attractBlink % 90;
+    if (cycle < 36) this.drawAttractFrogs(cycle);
+    else if (cycle < 45) this.drawAttractPointTable(cycle - 36);
+    else if (cycle < 52) this.drawAttractRanking();
+    else if (cycle < 60) this.drawAttractInstructions();
+    else this.drawAttractStart();
   }
 
   private attractSegment(): number {
-    const cycle = this.attractBlink % 35;
-    if (cycle < 4) return 0;
-    if (cycle < 11) return 1;
-    if (cycle < 18) return 2;
-    if (cycle < 23) return 3;
-    return 4;
+    const cycle = this.attractBlink % 90;
+    if (cycle < 36) return 0;
+    if (cycle < 45) return 1;
+    if (cycle < 52) return 2;
+    if (cycle < 60) return 3;
+    if (cycle < 65) return 4;
+    return 5;
   }
 
   private enterAttractSegment(segment: number): void {
     this.attractSegmentIndex = segment;
-    if (segment === 0 || segment === 4) {
+    if (segment === 0 || segment === 5) {
       this.frog.reset(FROG_START_COL, FROG_START_ROW);
+      this.homes.reset();
       this.hud.score = 0;
       this.hud.timeRemaining = 1;
       this.demoMoveIndex = 0;
       this.demoMoveTimer = 0;
+      this.demoHomePause = 0;
     }
   }
 
@@ -661,6 +667,20 @@ export class Game {
       "up", "up", "left", "up", "right", "up", "up", "left",
       "up", "right", "up", "up", "left", "right", "up", "up",
     ];
+
+    if (this.frog.row === ROW.HOMES && !this.frog.isHopping()) {
+      this.demoHomePause += dt;
+      if (this.demoHomePause >= 0.9) {
+        const result = this.homes.tryFill(this.frog.tilePosition().x);
+        if (result !== "death") this.hud.score += SCORE_PER_HOME;
+        this.frog.reset(FROG_START_COL, FROG_START_ROW);
+        this.demoMoveIndex = 0;
+        this.demoMoveTimer = 0.7;
+        this.demoHomePause = 0;
+      }
+      return;
+    }
+
     this.demoMoveTimer -= dt;
     if (!this.frog.isHopping() && this.demoMoveTimer <= 0) {
       const direction = moves[this.demoMoveIndex % moves.length];
@@ -669,41 +689,67 @@ export class Game {
       const after = this.frog.tilePosition();
       if (before.x !== after.x || before.y !== after.y) this.hud.score += SCORE_PER_STEP;
       this.demoMoveIndex++;
-      this.demoMoveTimer = 0.48;
+      this.demoMoveTimer = 0.42;
     }
     this.frog.update(dt);
   }
 
   private drawAttractFrogs(elapsed: number): void {
-    const starts = [
-      { x: 48, y: 110 },
-      { x: WIDTH - 48, y: 110 },
-      { x: 48, y: HEIGHT - 90 },
-      { x: WIDTH - 48, y: HEIGHT - 90 },
-      { x: WIDTH / 2, y: HEIGHT - 54 },
-    ];
-    const targets = [
-      { x: WIDTH / 2, y: 208 },
-      { x: WIDTH / 2 - 38, y: 246 },
-      { x: WIDTH / 2 + 38, y: 246 },
-      { x: WIDTH / 2 - 20, y: 284 },
-      { x: WIDTH / 2 + 20, y: 284 },
-    ];
-    starts.forEach((start, index) => {
-      const p = Math.max(0, Math.min(1, (elapsed - index * 0.22) / 2.7));
-      const eased = 1 - Math.pow(1 - p, 3);
-      const x = start.x + (targets[index].x - start.x) * eased;
-      const y = start.y + (targets[index].y - start.y) * eased;
-      const hopping = p > 0 && p < 1 && Math.floor(p * 10) % 2 === 0;
-      this.sprites.drawCentered(
-        this.ctx,
-        hopping ? "frog_hop" : "frog_idle",
-        x,
-        y,
-        TILE * 1.15
-      );
-    });
-    if (elapsed > 3.2) this.drawAttractCentered("FROGGER", 330, "yellow", 2);
+    // Cabinet sequence: a frog marches across the lower blue field, leaving a
+    // row behind; the row climbs in staggered steps and resolves into FROGGER.
+    const count = Math.max(0, Math.min(14, Math.floor((elapsed - 6) / 1.15) + 1));
+    const rowY = 372;
+    const rowStartX = 42;
+    const spacing = 28;
+
+    if (elapsed < 24) {
+      for (let index = 0; index < count; index++) {
+        const active = index === count - 1 && elapsed > 6;
+        this.sprites.drawCentered(
+          this.ctx,
+          active && Math.floor(elapsed * 6) % 2 === 0 ? "frog_hop" : "frog_idle",
+          rowStartX + index * spacing,
+          rowY,
+          TILE * 0.9,
+          Math.PI / 2
+        );
+      }
+    } else {
+      const lift = Math.max(0, Math.min(1, (elapsed - 24) / 7));
+      const revealed = Math.max(0, Math.min(7, Math.floor((elapsed - 31) / 0.65)));
+      for (let index = revealed * 2; index < 14; index++) {
+        const letter = Math.floor(index / 2);
+        const tier = index % 2;
+        const stagger = Math.max(0, Math.min(1, lift * 1.35 - letter * 0.055));
+        const targetX = 74 + letter * 50 + tier * 15;
+        const targetY = 214 + tier * 34;
+        const x = rowStartX + index * spacing + (targetX - (rowStartX + index * spacing)) * stagger;
+        const y = rowY + (targetY - rowY) * stagger;
+        const hopping = stagger > 0 && stagger < 1 && Math.floor(stagger * 12) % 2 === 0;
+        this.sprites.drawCentered(
+          this.ctx,
+          hopping ? "frog_hop" : "frog_idle",
+          x,
+          y,
+          TILE * 0.9
+        );
+      }
+      const title = "FROGGER";
+      const titleX = (WIDTH - arcadeTextWidth(title, 3)) / 2;
+      for (let index = 0; index < revealed; index++) {
+        drawArcadeText(
+          this.ctx,
+          this.sprites,
+          title[index],
+          titleX + index * 27,
+          226,
+          "green",
+          3
+        );
+      }
+    }
+
+    this.drawAttractCentered("CREDIT 00", HEIGHT - 28, "grey", 1);
   }
 
   private drawAttractDemo(): void {
@@ -712,23 +758,25 @@ export class Game {
     this.homes.draw(this.ctx);
     this.frog.draw(this.ctx);
     drawHUD(this.ctx, this.hud, this.sprites);
-    const y = (ROW.MEDIAN + 0.5) * TILE;
-    this.ctx.fillStyle = "rgba(0,0,0,0.55)";
-    this.ctx.fillRect(WIDTH / 2 - 54, y - 13, 108, 26);
-    this.drawAttractCentered("DEMO", y - 9, "yellow", 1);
   }
 
-  private drawAttractTitle(): void {
-    this.drawAttractCentered("FROGGER", 150, "yellow", 3);
-    const showPrompt = Math.floor(this.attractBlink * 2) % 2 === 0;
-    if (showPrompt) {
-      this.drawAttractCentered(
-        this.touchUi ? "TAP START TO PLAY" : "PRESS ENTER TO PLAY",
-        250,
-        "red"
-      );
-    }
-    this.drawAttractCentered("CREDIT 00", HEIGHT - 34, "grey", 1);
+  private drawAttractPointTable(elapsed: number): void {
+    this.drawAttractCentered("POINT TABLE", 88, "grey", 2);
+    const rows: Array<[string, string]> = [
+      ["1 JUMP FORWARD", "10 PT"],
+      ["1 FROG ARRIVED", "50 PT"],
+      ["LADY FROG ARRIVED", "200 PT"],
+      ["FLY CATCHED", "200 PT"],
+      ["ALL FROGS ARRIVED", "1000 PT"],
+      ["TIME REMAINING", "10 PT PER BEAT"],
+    ];
+    const shown = Math.min(rows.length, Math.floor(elapsed / 1.05) + 1);
+    rows.slice(0, shown).forEach(([label, value], index) => {
+      const y = 132 + index * 52;
+      this.drawAttractCentered(label, y, "yellow", 1.5);
+      this.drawAttractCentered(value, y + 22, "red", 1.25);
+    });
+    this.drawAttractCentered("CREDIT 00", HEIGHT - 28, "grey", 1);
   }
 
   private drawAttractInstructions(): void {
@@ -750,29 +798,42 @@ export class Game {
     this.drawAttractCentered("CREDIT 00", HEIGHT - 28, "grey", 1);
   }
 
-  private drawAttractScoring(): void {
-    this.drawAttractCentered("SCORING", 82, "yellow");
-    const rows: Array<[string, string]> = [
-      ["SAFE JUMP", "10 POINTS"],
-      ["ARRIVE HOME", "50 POINTS"],
-      ["TIME LEFT", "10 EACH"],
-      ["LADY FROG", "200 POINTS"],
-      ["FLY", "200 POINTS"],
-      ["ALL 5 HOME", "1000 POINTS"],
+  private drawAttractRanking(): void {
+    this.drawAttractCentered("SCORE RANKING", 96, "grey", 2);
+    const rows = [
+      ["1ST", "10000 PT"],
+      ["2ND", "5000 PT"],
+      ["3RD", "3000 PT"],
+      ["4TH", "1000 PT"],
+      ["5TH", "500 PT"],
     ];
-    rows.forEach(([label, points], index) => {
-      const y = 126 + index * 48;
-      this.drawAttractCentered(label, y, "grey");
-      this.drawAttractCentered(points, y + 20, "red", 1);
+    rows.forEach(([rank, score], index) => {
+      const y = 154 + index * 50;
+      drawArcadeText(this.ctx, this.sprites, rank, 110, y, "yellow", 1.5);
+      drawArcadeText(this.ctx, this.sprites, score, 230, y, "red", 1.5);
     });
-    this.drawAttractCentered("TAP START TO PLAY", 430, "yellow");
+    this.drawAttractCentered("CREDIT 00", HEIGHT - 28, "grey", 1);
+  }
+
+  private drawAttractStart(): void {
+    this.drawAttractCentered("INSERT COIN", 160, "red", 2);
+    this.drawAttractCentered("3 FROGS PER PLAYER", 224, "grey", 1.5);
+    const showPrompt = Math.floor(this.attractBlink * 2) % 2 === 0;
+    if (showPrompt) {
+      this.drawAttractCentered(
+        this.touchUi ? "TAP START TO PLAY" : "PRESS ENTER TO PLAY",
+        292,
+        "yellow",
+        1.5
+      );
+    }
     this.drawAttractCentered("CREDIT 00", HEIGHT - 28, "grey", 1);
   }
 
   private drawAttractCentered(
     text: string,
     y: number,
-    colour: "grey" | "yellow" | "red",
+    colour: "grey" | "yellow" | "red" | "green",
     scale = 2
   ): void {
     const x = (WIDTH - arcadeTextWidth(text, scale)) / 2;

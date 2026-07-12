@@ -10,7 +10,7 @@ export interface HUDState {
   timeRemaining: number; // 0..1
 }
 
-export type ArcadeColour = "grey" | "yellow" | "red";
+export type ArcadeColour = "grey" | "yellow" | "red" | "green";
 
 const GLYPH_SIZE = 9;
 const GLYPH_SCALE = 2;
@@ -19,6 +19,7 @@ const COLOUR_BLOCK: Record<ArcadeColour, number> = {
   grey: 0,
   yellow: 27,
   red: 54,
+  green: 81,
 };
 
 export function drawHUD(
@@ -105,7 +106,13 @@ export function drawArcadeText(
   scale = GLYPH_SCALE
 ): void {
   if (!sprites?.isReady()) {
-    ctx.fillStyle = colour === "red" ? "#ff2020" : colour === "yellow" ? PALETTE.hudYellow : PALETTE.white;
+    ctx.fillStyle = colour === "red"
+      ? "#ff2020"
+      : colour === "yellow"
+        ? PALETTE.hudYellow
+        : colour === "green"
+          ? PALETTE.frogGreen
+          : PALETTE.white;
     ctx.font = `bold ${GLYPH_SIZE * scale}px monospace`;
     ctx.textBaseline = "top";
     ctx.textAlign = "left";
