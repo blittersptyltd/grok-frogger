@@ -130,7 +130,7 @@ export class Game {
         this.syncMuteLabel();
       }
 
-      if (this.state === "PLAYING" || this.state === "READY") this.audio.startMusic();
+      if (this.state === "PLAYING") this.audio.startMusic();
     });
 
     // Reason: unlock in capture phase during the gesture itself. iOS Safari often
@@ -550,6 +550,9 @@ export class Game {
   }
 
   private startNewGame(): void {
+    // Attract mode is silent. Cancel any stale/scheduled music before READY;
+    // PLAYING becomes the sole owner of soundtrack startup.
+    this.audio.stopMusic();
     this.hud = { score: 0, hiScore: this.hud.hiScore, lives: 3, level: 1, timeRemaining: 1 };
     this.homes.reset();
     this.bonuses.reset();
@@ -561,7 +564,6 @@ export class Game {
     this.extraLifeAwarded = false;
     this.input.clear();
     this.spawnLanesForLevel();
-    this.audio.startMusic();
     this.enterReady();
   }
 

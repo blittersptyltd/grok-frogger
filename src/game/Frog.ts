@@ -138,9 +138,11 @@ export class Frog {
     const fromY = rowY(this.hopFrom.row);
     const toX = this.col * TILE;
     const toY = rowY(this.row);
+    const horizontalHop = this.hopFrom.row === this.row;
     return {
       x: fromX + (toX - fromX) * t,
-      y: fromY + (toY - fromY) * t,
+      // Pin left/right movement to one exact row baseline.
+      y: horizontalHop ? toY : fromY + (toY - fromY) * t,
       t,
     };
   }
@@ -155,7 +157,12 @@ export class Frog {
     const isMidHop = t > 0 && t < 1;
     const name = isMidHop ? "frog_hop" : "frog_idle";
     const cx = x + TILE / 2;
-    const cy = y + TILE / 2 - arc;
+    // frog_hop's opaque pixels sit one source pixel lower than frog_idle's.
+    // Compensate only before vertical rotation; horizontal frames already share
+    // the same rotated alpha bounds and must remain on the exact row baseline.
+    const verticalFacing = this.facing === "up" || this.facing === "down";
+    const opticalYOffset = isMidHop && verticalFacing ? -(TILE * 1.12) / 16 : 0;
+    const cy = y + TILE / 2 - arc + opticalYOffset;
     let rotation = 0;
     switch (this.facing) {
       case "up":    rotation = 0; break;

@@ -95,6 +95,9 @@ export class Audio {
   private muted = false;
   private musicEnabled = false;
   private musicGain: GainNode | null = null;
+  private musicStartPending = false;
+  private musicGeneration = 0;
+  private activeMusicOscillators = new Set<OscillatorNode>();
   private nextEighthTime = 0;
   private schedulerHandle: number | null = null;
   private eighthsPlayed = 0;
@@ -211,10 +214,16 @@ export class Audio {
   }
 
   startMusic(): void {
+    if (this.musicEnabled || this.musicStartPending) return;
+    this.musicStartPending = true;
+    const generation = ++this.musicGeneration;
     void this.ensureStarted().then(() => {
+      if (generation !== this.musicGeneration) return;
+      this.musicStartPending = false;
       if (!this.ctx || !this.musicGain) return;
-      if (this.musicEnabled) return;
       this.musicEnabled = true;
+      this.musicGain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.musicGain.gain.setValueAtTime(0.14, this.ctx.currentTime);
       this.inIntro = true;
       this.eighthsPlayed = 0;
       this.melody = { steps: INTRO_MELODY, index: 0, remaining: 0 };
@@ -225,10 +234,22 @@ export class Audio {
   }
 
   stopMusic(): void {
+    this.musicGeneration++;
+    this.musicStartPending = false;
     this.musicEnabled = false;
     if (this.schedulerHandle !== null) {
       clearTimeout(this.schedulerHandle);
       this.schedulerHandle = null;
+    }
+    // Notes are scheduled ahead, so clearing the timer alone leaves up to
+    // 450ms playing. Stop every music oscillator immediately at transitions.
+    for (const oscillator of this.activeMusicOscillators) {
+      try { oscillator.stop(); } catch { /* already ended */ }
+    }
+    this.activeMusicOscillators.clear();
+    if (this.ctx && this.musicGain) {
+      this.musicGain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.musicGain.gain.setValueAtTime(0, this.ctx.currentTime);
     }
   }
 
@@ -289,6 +310,10 @@ export class Audio {
     env.gain.exponentialRampToValueAtTime(0.0001, start + Math.max(0.04, duration));
     osc.connect(env);
     env.connect(target);
+    if (target === this.musicGain) {
+      this.activeMusicOscillators.add(osc);
+      osc.addEventListener("ended", () => this.activeMusicOscillators.delete(osc), { once: true });
+    }
     osc.start(start);
     osc.stop(start + duration + 0.05);
   }
