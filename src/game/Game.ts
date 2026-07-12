@@ -1,6 +1,6 @@
 import { WIDTH, HEIGHT, TILE, COLS, GameState, PALETTE } from "../types";
 import { drawWorldBackground, ROW } from "./World";
-import { drawHUD, HUDState } from "./HUD";
+import { arcadeTextWidth, drawArcadeText, drawHUD, drawScoreHUD, HUDState } from "./HUD";
 import { Input } from "./Input";
 import { Frog, FROG_START_COL, FROG_START_ROW, DeathKind } from "./Frog";
 import { SpriteSheet } from "./Sprites";
@@ -576,18 +576,27 @@ export class Game {
   private render(): void {
     const { ctx } = this;
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+    // Original attract instructions replace the playfield with black pages;
+    // keep the live scoreboard above them.
+    if (this.state === "ATTRACT") {
+      ctx.fillStyle = PALETTE.black;
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      drawScoreHUD(ctx, this.hud, this.sprites);
+      this.drawAttractOverlay();
+      return;
+    }
+
     drawWorldBackground(ctx);
     for (const lane of this.allLanes) lane.draw(ctx);
     this.homes.draw(ctx);
-    // Reason: hide player during ATTRACT and LEVEL_COMPLETE (home sprites own the bay).
-    if (this.state !== "ATTRACT" && this.state !== "LEVEL_COMPLETE") this.frog.draw(ctx);
+    // Home sprites own the bay during the level-complete banner.
+    if (this.state !== "LEVEL_COMPLETE") this.frog.draw(ctx);
     // Draw lady after frog so she rides visibly beside the player when carried.
     const frogPix = this.frog.pixelPosition();
     this.bonuses.draw(
       ctx,
-      this.state !== "ATTRACT" &&
-        this.state !== "LEVEL_COMPLETE" &&
-        !this.frog.isDying()
+      this.state !== "LEVEL_COMPLETE" && !this.frog.isDying()
         ? {
             x: frogPix.x + TILE / 2,
             y: frogPix.y + TILE / 2,
@@ -598,8 +607,7 @@ export class Game {
     if (this.debug) this.drawDebugOverlay();
     drawHUD(ctx, this.hud, this.sprites);
 
-    if (this.state === "ATTRACT") this.drawAttractOverlay();
-    else if (this.state === "READY") this.drawCenteredBanner("READY!");
+    if (this.state === "READY") this.drawCenteredBanner("READY!");
     else if (this.state === "LEVEL_COMPLETE") this.drawCenteredBanner("LEVEL COMPLETE!");
     else if (this.state === "GAME_OVER") {
       const hint = this.touchUi ? "TAP TO CONTINUE" : "ENTER TO RESTART";
@@ -608,27 +616,71 @@ export class Game {
   }
 
   private drawAttractOverlay(): void {
-    const { ctx } = this;
-    // Reason: banner used to sit on the median and painted it out with a dark
-    // bar — looked like the centre strip was missing until PLAYING. Park it on
-    // the road asphalt instead so both banks stay visible in attract.
-    const titleY = (ROW.ROAD_3 + 0.5) * TILE;
-    ctx.fillStyle = "rgba(0,0,0,0.65)";
-    ctx.fillRect(0, titleY - 28, WIDTH, 56);
+    const cycle = this.attractBlink % 18;
+    if (cycle < 4) this.drawAttractTitle();
+    else if (cycle < 11) this.drawAttractInstructions();
+    else this.drawAttractScoring();
+  }
 
-    ctx.fillStyle = PALETTE.hudYellow;
-    ctx.font = `bold 18px "Press Start 2P", monospace`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("FROGGER", WIDTH / 2, titleY - 10);
-
-    // Blink prompt ~2Hz so the attract screen feels alive.
+  private drawAttractTitle(): void {
+    this.drawAttractCentered("FROGGER", 150, "yellow", 3);
     const showPrompt = Math.floor(this.attractBlink * 2) % 2 === 0;
     if (showPrompt) {
-      ctx.fillStyle = PALETTE.hudCyan;
-      ctx.font = `bold 10px "Press Start 2P", monospace`;
-      ctx.fillText(this.touchUi ? "TAP TO START" : "PRESS ENTER", WIDTH / 2, titleY + 14);
+      this.drawAttractCentered(
+        this.touchUi ? "TAP START TO PLAY" : "PRESS ENTER TO PLAY",
+        250,
+        "red"
+      );
     }
+    this.drawAttractCentered("CREDIT 00", HEIGHT - 34, "grey", 1);
+  }
+
+  private drawAttractInstructions(): void {
+    this.drawAttractCentered("HOW TO PLAY", 82, "yellow");
+    const lines = [
+      "SWIPE OR TAP ARROWS",
+      "GET 5 FROGS HOME",
+      "CROSS ROAD AND RIVER",
+      "RIDE LOGS TURTLES",
+      "AND CROCODILE BACKS",
+      "AVOID CARS SNAKES",
+      "DIVING TURTLES AND",
+      "CROCODILE MOUTHS",
+    ];
+    lines.forEach((line, index) => {
+      this.drawAttractCentered(line, 124 + index * 34, "grey");
+    });
+    this.drawAttractCentered("TAP START TO PLAY", 420, "red");
+    this.drawAttractCentered("CREDIT 00", HEIGHT - 28, "grey", 1);
+  }
+
+  private drawAttractScoring(): void {
+    this.drawAttractCentered("SCORING", 82, "yellow");
+    const rows: Array<[string, string]> = [
+      ["SAFE JUMP", "10 POINTS"],
+      ["ARRIVE HOME", "50 POINTS"],
+      ["TIME LEFT", "10 EACH"],
+      ["LADY FROG", "200 POINTS"],
+      ["FLY", "200 POINTS"],
+      ["ALL 5 HOME", "1000 POINTS"],
+    ];
+    rows.forEach(([label, points], index) => {
+      const y = 126 + index * 48;
+      this.drawAttractCentered(label, y, "grey");
+      this.drawAttractCentered(points, y + 20, "red", 1);
+    });
+    this.drawAttractCentered("TAP START TO PLAY", 430, "yellow");
+    this.drawAttractCentered("CREDIT 00", HEIGHT - 28, "grey", 1);
+  }
+
+  private drawAttractCentered(
+    text: string,
+    y: number,
+    colour: "grey" | "yellow" | "red",
+    scale = 2
+  ): void {
+    const x = (WIDTH - arcadeTextWidth(text, scale)) / 2;
+    drawArcadeText(this.ctx, this.sprites, text, x, y, colour, scale);
   }
 
   private drawCenteredBanner(text: string): void {

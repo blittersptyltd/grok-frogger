@@ -10,7 +10,7 @@ export interface HUDState {
   timeRemaining: number; // 0..1
 }
 
-type ArcadeColour = "grey" | "yellow" | "red";
+export type ArcadeColour = "grey" | "yellow" | "red";
 
 const GLYPH_SIZE = 9;
 const GLYPH_SCALE = 2;
@@ -28,6 +28,14 @@ export function drawHUD(
 ): void {
   drawTopHUD(ctx, state, sprites);
   drawBottomHUD(ctx, state, sprites);
+}
+
+export function drawScoreHUD(
+  ctx: CanvasRenderingContext2D,
+  state: HUDState,
+  sprites?: SpriteSheet
+): void {
+  drawTopHUD(ctx, state, sprites);
 }
 
 function drawTopHUD(
@@ -87,7 +95,7 @@ function drawBottomHUD(
   ctx.fillRect(barX, barY, fillW, barH);
 }
 
-function drawArcadeText(
+export function drawArcadeText(
   ctx: CanvasRenderingContext2D,
   sprites: SpriteSheet | undefined,
   text: string,
@@ -128,6 +136,10 @@ function drawArcadeText(
     }
     cx += GLYPH_SIZE * scale;
   }
+}
+
+export function arcadeTextWidth(text: string, scale = GLYPH_SCALE): number {
+  return text.length * GLYPH_SIZE * scale;
 }
 
 function glyphPosition(char: string): { col: number; row: number } | null {
