@@ -710,7 +710,7 @@ export class Game {
     this.ctx.fillRect(0, fieldTop, WIDTH, fieldBottom - fieldTop);
 
     const stations = [72, 122, 172, 222, 272, 322, 372];
-    const rowY = fieldBottom - 16;
+    const rowY = fieldBottom - 38;
     const frogSize = 23;
     const marchStart = 4.5;
     const joinEvery = 3.65;
@@ -727,15 +727,15 @@ export class Game {
         const p = Math.max(0, Math.min(1, stageTime / joinEvery));
         // The cabinet runner arrives in short, discrete left-facing hops.
         const hopCount = 5;
-        const stepped = Math.min(1, Math.floor(p * hopCount) / hopCount);
         const hopPhase = (p * hopCount) % 1;
-        const x = WIDTH - 38 + (stations[stage] - (WIDTH - 38)) * stepped;
-        const y = rowY - Math.sin(Math.PI * Math.min(1, hopPhase)) * 7;
+        // Keep every frog on one clean baseline; the sprite-frame change sells
+        // the hop without the diagonal wobble produced by a moving Y coordinate.
+        const x = WIDTH - 38 + (stations[stage] - (WIDTH - 38)) * p;
         this.sprites.drawCentered(
           this.ctx,
           hopPhase < 0.72 ? "frog_hop" : "frog_idle",
           x,
-          y,
+          rowY,
           frogSize,
           -Math.PI / 2
         );

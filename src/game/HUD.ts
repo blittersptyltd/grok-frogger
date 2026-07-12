@@ -106,6 +106,12 @@ export function drawArcadeText(
   colour: ArcadeColour,
   scale = GLYPH_SCALE
 ): void {
+  // Integer destination geometry prevents neighbouring 9px atlas cells from
+  // bleeding into the glyph as thin leading fragments ("|CREDIT", "|1 JUMP").
+  const pixelScale = Math.max(1, Math.round(scale));
+  const drawX = Math.round(x);
+  const drawY = Math.round(y);
+
   if (!sprites?.isReady()) {
     ctx.fillStyle = colour === "red"
       ? "#ff2020"
@@ -116,17 +122,17 @@ export function drawArcadeText(
           : colour === "cyan"
             ? "#14f0ff"
             : PALETTE.white;
-    ctx.font = `bold ${GLYPH_SIZE * scale}px monospace`;
+    ctx.font = `bold ${GLYPH_SIZE * pixelScale}px monospace`;
     ctx.textBaseline = "top";
     ctx.textAlign = "left";
-    ctx.fillText(text, x, y);
+    ctx.fillText(text, drawX, drawY);
     return;
   }
 
-  let cx = x;
+  let cx = drawX;
   for (const char of text.toUpperCase()) {
     if (char === " ") {
-      cx += GLYPH_SIZE * scale;
+      cx += GLYPH_SIZE * pixelScale;
       continue;
     }
     const pos = glyphPosition(char);
@@ -139,17 +145,17 @@ export function drawArcadeText(
         GLYPH_SIZE,
         GLYPH_SIZE,
         cx,
-        y,
-        GLYPH_SIZE * scale,
-        GLYPH_SIZE * scale
+        drawY,
+        GLYPH_SIZE * pixelScale,
+        GLYPH_SIZE * pixelScale
       );
     }
-    cx += GLYPH_SIZE * scale;
+    cx += GLYPH_SIZE * pixelScale;
   }
 }
 
 export function arcadeTextWidth(text: string, scale = GLYPH_SCALE): number {
-  return text.length * GLYPH_SIZE * scale;
+  return text.length * GLYPH_SIZE * Math.max(1, Math.round(scale));
 }
 
 function glyphPosition(char: string): { col: number; row: number } | null {
