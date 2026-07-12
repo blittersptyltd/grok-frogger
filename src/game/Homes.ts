@@ -133,8 +133,16 @@ export class Homes {
           TILE * 0.55
         );
       } else if (this.occupants[i] === "croc") {
-        // Head-only hazard sits in the alcove mouth.
-        this.sprites.drawCentered(ctx, "croc_head", cx, cy, TILE * 0.95);
+        // Original home hazard alternates open/closed mouth frames.
+        const frame = Math.floor(performance.now() / 240) % 2 === 0
+          ? "croc_home_closed"
+          : "croc_home_open";
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(ax, y + HOME_ALCOVE.topInset, HOME_ALCOVE.width, HOME_ALCOVE.height);
+        ctx.clip();
+        this.sprites.drawStretched(ctx, frame, cx - 17, cy - 14, 34, 30);
+        ctx.restore();
       }
     }
   }

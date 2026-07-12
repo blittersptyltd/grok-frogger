@@ -65,7 +65,7 @@ const LOG_SRC_Y = 2;
 const LOG_SRC_H = 10;
 const LOG_SCALE = 2;
 const LOG_SECTION_W = 16 * LOG_SCALE;
-const LOG_HEIGHT = LOG_SRC_H * LOG_SCALE;
+const LOG_HEIGHT = 24;
 const LOG_Y_OFFSET = (TILE - LOG_HEIGHT) / 2;
 const LOG_SEAM_OVERLAP = 4;
 
@@ -169,9 +169,13 @@ export class Obstacle {
     } else if (isTurtle(this.kind)) {
       this.drawTurtles(ctx, x, y);
     } else if (this.kind === "croc") {
-      // Full-body river croc faces right natively; flip when moving left.
+      // Full-body river croc faces right natively; animate its mouth while the
+      // body stays rideable. lethalBounds() covers only the leading mouth tile.
       const flip = this.direction === -1;
-      this.sprites.drawStretched(ctx, "croc_body", x, y + 4, w, h - 6, flip);
+      const frame = Math.floor(performance.now() / 240) % 2 === 0
+        ? "croc_body_closed"
+        : "croc_body_open";
+      this.sprites.drawStretched(ctx, frame, x, y + 1, w, h - 2, flip);
     } else if (this.kind === "snake") {
       const frames: Array<"snake_a" | "snake_b" | "snake_c"> = [
         "snake_a",
@@ -187,7 +191,17 @@ export class Obstacle {
       if (spriteName) {
         const naturalDir = VEHICLE_NATURAL_DIR[this.kind] ?? 1;
         const flip = this.direction !== naturalDir;
-        this.sprites.drawStretched(ctx, spriteName, x, y, w, h, flip);
+        const visualW = w * 1.08;
+        const visualH = h * 1.12;
+        this.sprites.drawStretched(
+          ctx,
+          spriteName,
+          x - (visualW - w) / 2,
+          y - (visualH - h) / 2,
+          visualW,
+          visualH,
+          flip
+        );
       }
     }
   }
@@ -235,7 +249,7 @@ export class Obstacle {
       if (phase === "under") {
         this.sprites!.drawStretched(ctx, frame, dx + 4, y + 10, slotW - 8, TILE - 16, flip);
       } else {
-        this.sprites!.drawStretched(ctx, frame, dx, y, slotW, TILE, flip);
+        this.sprites!.drawStretched(ctx, frame, dx - 2, y - 2, slotW + 4, TILE + 4, flip);
       }
     }
   }

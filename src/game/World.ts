@@ -1,22 +1,22 @@
 import { TILE, COLS, PALETTE } from "../types";
 
-// Playfield row indices. Row 0 = top HUD; playfield starts at row 1.
+// Playfield row indices. Rows 0–1 = two-line top HUD; homes start at row 2.
 export const ROW = {
   HUD_TOP: 0,
-  HOMES: 1,
-  RIVER_1: 2,
-  RIVER_2: 3,
-  RIVER_3: 4,
-  RIVER_4: 5,
-  RIVER_5: 6,
-  MEDIAN: 7,
-  ROAD_1: 8,
-  ROAD_2: 9,
-  ROAD_3: 10,
-  ROAD_4: 11,
-  ROAD_5: 12,
-  START: 13,
-  HUD_BOTTOM: 14,
+  HOMES: 2,
+  RIVER_1: 3,
+  RIVER_2: 4,
+  RIVER_3: 5,
+  RIVER_4: 6,
+  RIVER_5: 7,
+  MEDIAN: 8,
+  ROAD_1: 9,
+  ROAD_2: 10,
+  ROAD_3: 11,
+  ROAD_4: 12,
+  ROAD_5: 13,
+  START: 14,
+  HUD_BOTTOM: 15,
 } as const;
 
 type RowKind = "hud" | "homes" | "river" | "median" | "road" | "start";

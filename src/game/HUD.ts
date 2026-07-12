@@ -10,38 +10,40 @@ export interface HUDState {
   timeRemaining: number; // 0..1
 }
 
+type ArcadeColour = "grey" | "yellow" | "red";
+
+const GLYPH_SIZE = 9;
+const GLYPH_SCALE = 2;
+const GLYPH_ROWS = ["0123456789ABCDEFG", "HIJKLMNOPQRSTUVWX", "YZ-@="];
+const COLOUR_BLOCK: Record<ArcadeColour, number> = {
+  grey: 0,
+  yellow: 27,
+  red: 54,
+};
+
 export function drawHUD(
   ctx: CanvasRenderingContext2D,
   state: HUDState,
   sprites?: SpriteSheet
 ): void {
-  drawTopHUD(ctx, state);
+  drawTopHUD(ctx, state, sprites);
   drawBottomHUD(ctx, state, sprites);
 }
 
-function drawTopHUD(ctx: CanvasRenderingContext2D, state: HUDState): void {
+function drawTopHUD(
+  ctx: CanvasRenderingContext2D,
+  state: HUDState,
+  sprites?: SpriteSheet
+): void {
   const y = ROW.HUD_TOP * TILE;
   ctx.fillStyle = PALETTE.black;
-  ctx.fillRect(0, y, COLS * TILE, TILE);
+  ctx.fillRect(0, y, COLS * TILE, TILE * 2);
 
-  // Single line, ~14px font so labels + numbers fit
-  ctx.font = `bold 14px "Press Start 2P", monospace`;
-  ctx.textBaseline = "middle";
-  const midY = y + TILE / 2;
-
-  // Left: 1-UP and score on one line
-  ctx.textAlign = "left";
-  ctx.fillStyle = PALETTE.hudCyan;
-  ctx.fillText("1-UP", 6, midY);
-  ctx.fillStyle = PALETTE.white;
-  ctx.fillText(pad(state.score, 5), 6 + 50, midY);
-
-  // Right: HI-SCORE label and value on one line, right-aligned
-  ctx.textAlign = "right";
-  ctx.fillStyle = PALETTE.white;
-  ctx.fillText(pad(state.hiScore, 5), COLS * TILE - 6, midY);
-  ctx.fillStyle = PALETTE.hudCyan;
-  ctx.fillText("HI-SCORE", COLS * TILE - 6 - 60, midY);
+  // Original two-line arrangement: labels above, red score digits below.
+  drawArcadeText(ctx, sprites, "1-UP", 36, y + 2, "grey");
+  drawArcadeText(ctx, sprites, "HI-SCORE", 160, y + 2, "grey");
+  drawArcadeText(ctx, sprites, pad(state.score, 5), 36, y + 30, "red");
+  drawArcadeText(ctx, sprites, pad(state.hiScore, 5), 196, y + 30, "red");
 }
 
 function drawBottomHUD(
@@ -53,7 +55,6 @@ function drawBottomHUD(
   ctx.fillStyle = PALETTE.black;
   ctx.fillRect(0, y, COLS * TILE, TILE);
 
-  // Lives: small frog icons on the left (arcade "extra man")
   const lifeSize = TILE / 2;
   for (let i = 0; i < state.lives; i++) {
     const lx = 4 + i * (lifeSize + 2);
@@ -61,32 +62,80 @@ function drawBottomHUD(
     drawLifeIcon(ctx, lx, ly, lifeSize, sprites);
   }
 
-  // Level indicator (small, after lives)
-  ctx.font = `bold 12px "Press Start 2P", monospace`;
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = PALETTE.hudYellow;
-  ctx.textAlign = "left";
-  ctx.fillText(`L=${state.level}`, 4 + state.lives * (lifeSize + 2) + 6, y + TILE / 2);
+  drawArcadeText(
+    ctx,
+    sprites,
+    `L${state.level}`,
+    4 + state.lives * (lifeSize + 2) + 6,
+    y + 7,
+    "grey",
+    1
+  );
 
-  // TIME label and bar on right
-  ctx.font = `bold 14px "Press Start 2P", monospace`;
-  ctx.fillStyle = PALETTE.hudYellow;
-  ctx.textAlign = "right";
-  ctx.fillText("TIME", COLS * TILE - 4, y + TILE / 2);
+  drawArcadeText(ctx, sprites, "TIME", COLS * TILE - 76, y + 7, "yellow", 1);
 
   const barW = COLS * TILE * 0.55;
   const barH = TILE / 3;
-  const barX = COLS * TILE - 4 - 60 - barW;
+  const barX = COLS * TILE - 82 - barW;
   const barY = y + TILE / 2 - barH / 2;
 
-  // Bar background
   ctx.fillStyle = "#222";
   ctx.fillRect(barX, barY, barW, barH);
 
-  // Bar fill
   const fillW = Math.max(0, Math.min(1, state.timeRemaining)) * barW;
   ctx.fillStyle = PALETTE.timeBar;
   ctx.fillRect(barX, barY, fillW, barH);
+}
+
+function drawArcadeText(
+  ctx: CanvasRenderingContext2D,
+  sprites: SpriteSheet | undefined,
+  text: string,
+  x: number,
+  y: number,
+  colour: ArcadeColour,
+  scale = GLYPH_SCALE
+): void {
+  if (!sprites?.isReady()) {
+    ctx.fillStyle = colour === "red" ? "#ff2020" : colour === "yellow" ? PALETTE.hudYellow : PALETTE.white;
+    ctx.font = `bold ${GLYPH_SIZE * scale}px monospace`;
+    ctx.textBaseline = "top";
+    ctx.textAlign = "left";
+    ctx.fillText(text, x, y);
+    return;
+  }
+
+  let cx = x;
+  for (const char of text.toUpperCase()) {
+    if (char === " ") {
+      cx += GLYPH_SIZE * scale;
+      continue;
+    }
+    const pos = glyphPosition(char);
+    if (pos) {
+      sprites.drawCropped(
+        ctx,
+        "arcade_font",
+        pos.col * GLYPH_SIZE,
+        COLOUR_BLOCK[colour] + pos.row * GLYPH_SIZE,
+        GLYPH_SIZE,
+        GLYPH_SIZE,
+        cx,
+        y,
+        GLYPH_SIZE * scale,
+        GLYPH_SIZE * scale
+      );
+    }
+    cx += GLYPH_SIZE * scale;
+  }
+}
+
+function glyphPosition(char: string): { col: number; row: number } | null {
+  for (let row = 0; row < GLYPH_ROWS.length; row++) {
+    const col = GLYPH_ROWS[row].indexOf(char);
+    if (col !== -1) return { col, row };
+  }
+  return null;
 }
 
 function drawLifeIcon(
@@ -96,7 +145,6 @@ function drawLifeIcon(
   size: number,
   sprites?: SpriteSheet
 ): void {
-  // Prefer the real frog sprite scaled down; fall back to a tiny drawn frog.
   if (sprites?.isReady()) {
     sprites.drawCentered(ctx, "frog_idle", x + size / 2, y + size / 2, size);
     return;
@@ -113,6 +161,5 @@ function pad(n: number, width: number): string {
 }
 
 export function _hudHeightInRows(): number {
-  // Helper for layout sanity: top + playfield + bottom = TOTAL_ROWS
   return TOTAL_ROWS;
 }

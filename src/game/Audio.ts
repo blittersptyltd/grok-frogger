@@ -177,8 +177,9 @@ export class Audio {
     const t = this.ctx.currentTime;
     switch (name) {
       case "hop":
-        // Arcade hop: short rising square blip (~80ms).
-        this.playSweep(t, 520, 980, 0.08, "square", 0.22);
+        // Short stepped square chirp with odd harmonics, matching the stronger
+        // arcade character used by the reference implementation.
+        this.playArcadeHop(t);
         break;
       case "splat":
         // Road death: filtered noise thud + falling tone.
@@ -313,6 +314,26 @@ export class Audio {
     env.connect(this.masterGain);
     osc.start(start);
     osc.stop(start + duration + 0.05);
+  }
+
+  private playArcadeHop(start: number): void {
+    if (!this.ctx || !this.masterGain) return;
+    const pulse = (time: number, frequency: number): void => {
+      [1, 3, 5].forEach((harmonic) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = "square";
+        osc.frequency.value = frequency * harmonic;
+        gain.gain.setValueAtTime(0.075 / harmonic, time);
+        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.035);
+        osc.connect(gain);
+        gain.connect(this.masterGain!);
+        osc.start(time);
+        osc.stop(time + 0.04);
+      });
+    };
+    pulse(start, note(60));
+    pulse(start + 0.035, note(72));
   }
 
   private playNoiseBurst(

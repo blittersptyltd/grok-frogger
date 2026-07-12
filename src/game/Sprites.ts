@@ -24,8 +24,11 @@ export type SpriteName =
   | "log_m"
   | "log_r"
   | "bonus_fly"
-  | "croc_head"
-  | "croc_body"
+  | "croc_home_closed"
+  | "croc_home_open"
+  | "croc_body_closed"
+  | "croc_body_open"
+  | "arcade_font"
   | "snake_a"
   | "snake_b"
   | "snake_c"
@@ -57,8 +60,11 @@ const SPRITE_PATHS: Record<SpriteName, string> = {
   log_m: asset("sprites/cut/log_m.png"),
   log_r: asset("sprites/cut/log_r.png"),
   bonus_fly: asset("sprites/cut/bonus_fly.png"),
-  croc_head: asset("sprites/cut/croc_head.png"),
-  croc_body: asset("sprites/cut/croc_body.png"),
+  croc_home_closed: asset("sprites/cut/croc_home_closed.png"),
+  croc_home_open: asset("sprites/cut/croc_home_open.png"),
+  croc_body_closed: asset("sprites/cut/croc_body_closed.png"),
+  croc_body_open: asset("sprites/cut/croc_body_open.png"),
+  arcade_font: asset("sprites/cut/arcade_font.png"),
   snake_a: asset("sprites/cut/snake_a.png"),
   snake_b: asset("sprites/cut/snake_b.png"),
   snake_c: asset("sprites/cut/snake_c.png"),

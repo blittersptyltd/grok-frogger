@@ -163,9 +163,9 @@ export class Frog {
       case "down":  rotation = Math.PI; break;
       case "left":  rotation = -Math.PI / 2; break;
     }
-    // Render at exact tile size so the frog stays in lockstep with the lane
-    // grid (cars/logs render flush to row * TILE).
-    this.sprites.drawCentered(ctx, name, cx, cy, TILE, rotation);
+    // Slightly oversize the visual for mobile readability; collision remains
+    // tile-based and arcade-faithful.
+    this.sprites.drawCentered(ctx, name, cx, cy, TILE * 1.12, rotation);
   }
 
   private drawDying(ctx: CanvasRenderingContext2D): void {
